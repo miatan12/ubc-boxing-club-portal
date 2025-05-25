@@ -51,7 +51,7 @@ const RegisterForm = () => {
     }
 
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/members`, {
+      const res = await axios.post(`/api/members`, {
         ...formData,
         startDate,
         expiryDate,

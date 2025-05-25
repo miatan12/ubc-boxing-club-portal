@@ -40,15 +40,3 @@ This project replaces the previous Google Forms + QR system with a streamlined d
 | **Deployment** | (TBD: Render / Vercel)    |
 
 ---
-
-## 📁 Project Structure
-
-ubc-boxing-club-portal/
-├── client/ # React frontend
-│ └── src/components/RegisterForm.js
-├── server/ # Express backend
-│ ├── models/ # Mongoose schemas
-│ ├── routes/ # API routes
-│ └── server.js # Main entry point
-├── .env # Local config (not committed)
-└── README.md

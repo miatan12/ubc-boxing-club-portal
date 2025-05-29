@@ -17,6 +17,7 @@ const RegisterForm = () => {
     cashReceiver: "",
   });
 
+  const [screenshot, setScreenshot] = useState(null);
   const [status, setStatus] = useState("");
 
   const handleChange = (e) => {
@@ -25,6 +26,10 @@ const RegisterForm = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleFileChange = (e) => {
+    setScreenshot(e.target.files[0]);
   };
 
   const calculateExpiry = (membershipType) => {
@@ -51,13 +56,17 @@ const RegisterForm = () => {
     }
 
     try {
+      const data = new FormData();
+      for (const key in formData) {
+        data.append(key, formData[key]);
+      }
+      data.append("startDate", startDate);
+      data.append("expiryDate", expiryDate);
+      if (screenshot) data.append("screenshot", screenshot);
+
       const res = await axios.post(
         `${process.env.REACT_APP_API_URL}/api/members`,
-        {
-          ...formData,
-          startDate,
-          expiryDate,
-        }
+        data
       );
       setStatus("success");
       console.log(res.data);
@@ -168,45 +177,69 @@ const RegisterForm = () => {
         <select
           name="paymentMethod"
           onChange={handleChange}
-          className="border p-2 w-full"
+          className="border p-2 w-full mb-4"
           required
         >
           <option value="">Select a payment method</option>
-          <option value="online">E-transfer or Online Payment</option>
+          <option value="online">Online Payment (Stripe)</option>
+          <option value="etransfer">E-transfer</option>
           <option value="cash">Cash (paid in-person)</option>
         </select>
 
+        {/* Online Payment */}
         {formData.paymentMethod === "online" && (
           <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded">
-            <p>
-              Send e-transfer to: <strong>deposit@ams.ubc.ca</strong>
-              <br />
-              Message:{" "}
-              <code className="bg-white p-1 rounded text-xs">
-                8030-00 50050 - Membership Fee Deposit (Boxing Club)
-              </code>
-              <br />
-              Or pay via:{" "}
+            <p className="whitespace-pre-wrap">
+              Pay securely via:{" "}
               <a
                 href="https://your-stripe-link.com"
                 className="text-blue-600 underline"
                 target="_blank"
                 rel="noreferrer"
               >
-                Online Payment
+                Stripe Payment Portal
               </a>
             </p>
           </div>
         )}
 
+        {/* E-transfer */}
+        {formData.paymentMethod === "etransfer" && (
+          <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded space-y-2">
+            <p className="whitespace-pre-wrap">
+              Send e-transfer to: <strong>deposit@ams.ubc.ca</strong>
+              {"\n"}
+              Message:{" "}
+              <code className="bg-white p-1 rounded text-xs">
+                8030-00 50050 - Membership Fee Deposit (Boxing Club)
+              </code>
+            </p>
+            <label className="block text-sm font-medium mt-2">
+              Upload Screenshot of Payment Confirmation
+              <input
+                type="file"
+                accept="image/*"
+                className="block mt-1"
+                onChange={handleFileChange}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Cash Payment */}
         {formData.paymentMethod === "cash" && (
-          <input
-            name="cashReceiver"
-            placeholder="Name of exec who received your cash"
-            onChange={handleChange}
-            className="border p-2 w-full mt-3"
-            required
-          />
+          <div className="mt-3 space-y-2">
+            <label className="block font-medium">
+              Name of exec who received your cash payment:
+            </label>
+            <input
+              name="cashReceiver"
+              placeholder="Exec's full name"
+              onChange={handleChange}
+              className="border p-2 w-full"
+              required
+            />
+          </div>
         )}
       </div>
 

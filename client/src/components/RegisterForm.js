@@ -51,11 +51,14 @@ const RegisterForm = () => {
     }
 
     try {
-      const res = await axios.post(`/api/members`, {
-        ...formData,
-        startDate,
-        expiryDate,
-      });
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/members`,
+        {
+          ...formData,
+          startDate,
+          expiryDate,
+        }
+      );
       setStatus("success");
       console.log(res.data);
     } catch (err) {

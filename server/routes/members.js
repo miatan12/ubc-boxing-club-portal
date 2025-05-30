@@ -66,4 +66,35 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/verify", async (req, res) => {
+  const { name } = req.query;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Name is required." });
+  }
+
+  try {
+    const member = await Member.findOne({
+      $or: [
+        { name: new RegExp(name, "i") }, // case-insensitive match
+        { email: new RegExp(name, "i") },
+      ],
+    });
+
+    if (!member) {
+      return res.json({ found: false });
+    }
+
+    const isActive = new Date(member.expiryDate) >= new Date();
+
+    return res.json({
+      found: true,
+      active: isActive,
+    });
+  } catch (err) {
+    console.error("🔥 Verify route error:", err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
 export default router;

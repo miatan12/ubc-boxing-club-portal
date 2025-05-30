@@ -46,7 +46,6 @@ const RegisterForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { startDate, expiryDate } = calculateExpiry(formData.membershipType);
-
     if (formData.paymentMethod === "cash" && !formData.cashReceiver.trim()) {
       setStatus("error");
       alert(
@@ -58,9 +57,11 @@ const RegisterForm = () => {
     try {
       const data = new FormData();
       for (const key in formData) {
-        data.append(key, formData[key]);
+        if (key !== "startDate" && key !== "expiryDate") {
+          data.append(key, formData[key]);
+        }
       }
-      data.append("startDate", startDate);
+      data.append("startDate", startDate); // only add once
       data.append("expiryDate", expiryDate);
       if (screenshot) data.append("screenshot", screenshot);
 

@@ -1,9 +1,11 @@
 import express from "express";
 import Member from "../models/Member.js";
+import multer from "multer";
 
+const upload = multer();
 const router = express.Router();
 
-router.post("/", async (req, res) => {
+router.post("/", upload.single("screenshot"), async (req, res) => {
   try {
     const {
       name,

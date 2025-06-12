@@ -17,7 +17,6 @@ const AdminDashboard = () => {
     fetchMembers();
   }, []);
 
-  // Helper to check if membership is active
   const isActive = (expiryDate) => {
     return new Date(expiryDate) >= new Date();
   };
@@ -30,51 +29,57 @@ const AdminDashboard = () => {
   });
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+    <div className="p-6 max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6 text-center">Admin Dashboard</h1>
 
-      <div className="mb-4 flex gap-2">
-        <button
-          onClick={() => setFilter("all")}
-          className="px-3 py-1 border rounded"
-        >
-          All
-        </button>
-        <button
-          onClick={() => setFilter("active")}
-          className="px-3 py-1 border rounded"
-        >
-          Active
-        </button>
-        <button
-          onClick={() => setFilter("expired")}
-          className="px-3 py-1 border rounded"
-        >
-          Expired
-        </button>
+      <div className="flex justify-center gap-4 mb-6">
+        {["all", "active", "expired"].map((type) => (
+          <button
+            key={type}
+            onClick={() => setFilter(type)}
+            className={`px-4 py-2 rounded border font-medium ${
+              filter === type
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-800 hover:bg-gray-100"
+            }`}
+          >
+            {type.charAt(0).toUpperCase() + type.slice(1)}
+          </button>
+        ))}
       </div>
 
-      <div className="space-y-2">
-        {filteredMembers.map((member, index) => (
-          <div
-            key={index}
-            className="border p-4 rounded shadow-sm flex justify-between items-center"
-          >
-            <div>
-              <p className="font-semibold">{member.name}</p>
-              <p className="text-sm text-gray-600">
-                Expires: {new Date(member.expiryDate).toLocaleDateString()}
-              </p>
-            </div>
-            <span
-              className={`text-xl ${
-                isActive(member.expiryDate) ? "text-green-500" : "text-red-500"
+      <div className="space-y-4">
+        {filteredMembers.map((member, index) => {
+          const active = isActive(member.expiryDate);
+          const expiryFormatted = new Date(
+            member.expiryDate
+          ).toLocaleDateString();
+
+          return (
+            <div
+              key={index}
+              className={`rounded-lg border p-4 shadow-sm ${
+                active ? "bg-white" : "bg-red-50"
               }`}
             >
-              {isActive(member.expiryDate) ? "✅" : "❌"}
-            </span>
-          </div>
-        ))}
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold">{member.name}</h3>
+                <span
+                  className={`text-sm font-medium px-2 py-1 rounded ${
+                    active
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {active ? "Active" : "Expired"}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600">
+                Expires: {expiryFormatted}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

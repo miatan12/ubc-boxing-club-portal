@@ -5,6 +5,7 @@ import multer from "multer";
 const upload = multer();
 const router = express.Router();
 
+// POST /api/members — Register new member
 router.post("/", upload.single("screenshot"), async (req, res) => {
   try {
     const {
@@ -50,22 +51,24 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
     await newMember.save();
 
     console.log("✅ New member registered:", newMember.name);
-
     res.status(201).json(newMember);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// GET /api/members — Fetch all members
 router.get("/", async (req, res) => {
   try {
-    const members = await Member.find();
-    res.status(200).json(members);
+    const members = await Member.find({});
+    res.json(members);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Failed to fetch members:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
+// GET /api/members/verify — Check membership status
 router.get("/verify", async (req, res) => {
   const { name } = req.query;
 
@@ -75,10 +78,7 @@ router.get("/verify", async (req, res) => {
 
   try {
     const member = await Member.findOne({
-      $or: [
-        { name: new RegExp(name, "i") }, // case-insensitive match
-        { email: new RegExp(name, "i") },
-      ],
+      $or: [{ name: new RegExp(name, "i") }, { email: new RegExp(name, "i") }],
     });
 
     if (!member) {
@@ -90,6 +90,8 @@ router.get("/verify", async (req, res) => {
     return res.json({
       found: true,
       active: isActive,
+      name: member.name,
+      expiryDate: member.expiryDate,
     });
   } catch (err) {
     console.error("🔥 Verify route error:", err);

@@ -26,6 +26,7 @@ const AdminDashboard = () => {
     if (filter === "all") return true;
     if (filter === "active") return isActive(member.expiryDate);
     if (filter === "expired") return !isActive(member.expiryDate);
+    return false;
   });
 
   return (
@@ -62,7 +63,7 @@ const AdminDashboard = () => {
             <div>
               <p className="font-semibold">{member.name}</p>
               <p className="text-sm text-gray-600">
-                Expires: {member.expiryDate}
+                Expires: {new Date(member.expiryDate).toLocaleDateString()}
               </p>
             </div>
             <span

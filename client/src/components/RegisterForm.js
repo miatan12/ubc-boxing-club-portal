@@ -45,8 +45,14 @@ const RegisterForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("🔁 submitting...");
+
     const { startDate, expiryDate } = calculateExpiry(formData.membershipType);
+    console.log("🕒 startDate:", startDate);
+    console.log("🕒 expiryDate:", expiryDate);
+
     if (formData.paymentMethod === "cash" && !formData.cashReceiver.trim()) {
+      console.warn("🚫 Missing cash receiver");
       setStatus("error");
       alert(
         "Please enter the name of the exec who received your cash payment."
@@ -54,6 +60,44 @@ const RegisterForm = () => {
       return;
     }
 
+    if (formData.paymentMethod === "online") {
+      // 🛑 Remove early return
+      // sessionStorage.setItem("submittedToStripe", "true"); ← MOVE THIS BELOW
+
+      const payload = { ...formData, startDate, expiryDate };
+      localStorage.setItem("boxing-form", JSON.stringify(payload));
+      console.log("📦 Stored to localStorage:", payload);
+
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/checkout/create-checkout-session`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!res.ok) {
+          alert("Server error while creating payment session.");
+          return;
+        }
+
+        const data = await res.json();
+        console.log("✅ Stripe session URL:", data.url);
+
+        // ✅ Set AFTER confirming redirect URL exists
+        sessionStorage.setItem("submittedToStripe", "true");
+        window.location.href = data.url;
+      } catch (err) {
+        console.error("❌ Stripe redirect error:", err);
+        setStatus("error");
+        alert("Failed to redirect to payment page.");
+      }
+
+      return;
+    }
+
+    // Non-online payment path
     try {
       const data = new FormData();
       for (const key in formData) {
@@ -61,18 +105,20 @@ const RegisterForm = () => {
           data.append(key, formData[key]);
         }
       }
-      data.append("startDate", startDate); // only add once
+      data.append("startDate", startDate);
       data.append("expiryDate", expiryDate);
       if (screenshot) data.append("screenshot", screenshot);
 
-      const res = await axios.post(
+      console.log("📤 Submitting to /api/members...");
+      const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/api/members`,
         data
       );
+
+      console.log("✅ Member created:", response.data);
       setStatus("success");
-      console.log(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Submission error:", err);
       setStatus("error");
     }
   };
@@ -187,24 +233,15 @@ const RegisterForm = () => {
           <option value="cash">Cash (paid in-person)</option>
         </select>
 
-        {/* Online Payment */}
         {formData.paymentMethod === "online" && (
           <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded">
-            <p className="whitespace-pre-wrap">
-              Pay securely via:{" "}
-              <a
-                href="https://your-stripe-link.com"
-                className="text-blue-600 underline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Stripe Payment Portal
-              </a>
+            <p>
+              You’ll be redirected to a secure Stripe checkout page after
+              submission.
             </p>
           </div>
         )}
 
-        {/* E-transfer */}
         {formData.paymentMethod === "etransfer" && (
           <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded space-y-2">
             <p className="whitespace-pre-wrap">
@@ -227,7 +264,6 @@ const RegisterForm = () => {
           </div>
         )}
 
-        {/* Cash Payment */}
         {formData.paymentMethod === "cash" && (
           <div className="mt-3 space-y-2">
             <label className="block font-medium">
@@ -244,7 +280,6 @@ const RegisterForm = () => {
         )}
       </div>
 
-      {/* Submit */}
       <div className="text-center">
         <button
           type="submit"

@@ -5,8 +5,10 @@ import multer from "multer";
 const upload = multer();
 const router = express.Router();
 
-// POST /api/members — Register new member
-router.post("/", upload.single("screenshot"), async (req, res) => {
+// ✅ POST (JSON) — For online payment success page
+router.post("/", async (req, res, next) => {
+  if (!req.headers["content-type"]?.includes("application/json")) return next();
+
   try {
     const {
       name,
@@ -23,7 +25,6 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       cashReceiver,
     } = req.body;
 
-    // Validate required fields
     const requiredFields = [
       name,
       email,
@@ -50,9 +51,62 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
     const newMember = new Member(req.body);
     await newMember.save();
 
-    console.log("✅ New member registered:", newMember.name);
+    console.log("✅ New member registered (JSON):", newMember.name);
     res.status(201).json(newMember);
   } catch (err) {
+    console.error("🔥 JSON member creation failed:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔁 POST (multipart) — For direct form with optional screenshot
+router.post("/", upload.single("screenshot"), async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      studentNumber,
+      emergencyContactName,
+      emergencyContactPhone,
+      emergencyContactRelation,
+      waiverSigned,
+      membershipType,
+      startDate,
+      expiryDate,
+      paymentMethod,
+      cashReceiver,
+    } = req.body;
+
+    const requiredFields = [
+      name,
+      email,
+      studentNumber,
+      emergencyContactName,
+      emergencyContactPhone,
+      emergencyContactRelation,
+      membershipType,
+      startDate,
+      expiryDate,
+      paymentMethod,
+    ];
+
+    if (requiredFields.some((field) => !field)) {
+      return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    if (paymentMethod === "cash" && !cashReceiver) {
+      return res.status(400).json({
+        error: "Please enter the name of the exec who collected cash.",
+      });
+    }
+
+    const newMember = new Member(req.body);
+    await newMember.save();
+
+    console.log("✅ New member registered (multipart):", newMember.name);
+    res.status(201).json(newMember);
+  } catch (err) {
+    console.error("🔥 Multipart member creation failed:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

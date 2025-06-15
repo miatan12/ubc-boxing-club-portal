@@ -3,12 +3,14 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import memberRoutes from "./routes/members.js";
+import checkoutRoutes from "./routes/checkout.js";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use("/api/checkout", checkoutRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)

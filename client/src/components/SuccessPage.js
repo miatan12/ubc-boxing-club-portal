@@ -9,21 +9,55 @@ const SuccessPage = () => {
       const stored = localStorage.getItem("boxing-form");
       if (!stored) return;
 
-      const form = JSON.parse(stored);
+      const raw = JSON.parse(stored);
+
+      // 🧼 Clean up duplicate fields if any (e.g., name/email)
+      const {
+        name,
+        email,
+        studentNumber,
+        emergencyContactName,
+        emergencyContactPhone,
+        emergencyContactRelation,
+        waiverSigned,
+        membershipType,
+        startDate,
+        expiryDate,
+        paymentMethod,
+        cashReceiver = "",
+      } = raw;
+
+      const cleaned = {
+        name,
+        email,
+        studentNumber,
+        emergencyContactName,
+        emergencyContactPhone,
+        emergencyContactRelation,
+        waiverSigned,
+        membershipType,
+        startDate,
+        expiryDate,
+        paymentMethod,
+        cashReceiver,
+      };
 
       try {
-        // ✅ Set the flag immediately to prevent re-submission
         sessionStorage.setItem("already-submitted", "true");
 
-        await axios.post(`${process.env.REACT_APP_API_URL}/api/members`, form, {
-          headers: { "Content-Type": "application/json" },
-        });
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/api/members`,
+          cleaned,
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
 
         localStorage.removeItem("boxing-form");
         sessionStorage.removeItem("submittedToStripe");
       } catch (err) {
         console.error("❌ Failed to submit member after payment:", err);
-        sessionStorage.removeItem("already-submitted"); // rollback flag if error
+        sessionStorage.removeItem("already-submitted"); // rollback
       }
     };
 

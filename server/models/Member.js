@@ -9,12 +9,15 @@ const memberSchema = new mongoose.Schema({
   emergencyContactRelation: { type: String, required: true },
   waiverSigned: { type: Boolean, required: true },
   membershipType: { type: String, enum: ["term", "year"], required: true },
-  startDate: { type: String, required: true },
-  expiryDate: { type: String, required: true },
-  paymentMethod: { type: String, enum: ["online", "cash"], required: true },
-  cashReceiver: { type: String }, // Optional unless paymentMethod is "cash"
+  startDate: { type: Date, required: true },
+  expiryDate: { type: Date, required: true },
+  paymentMethod: { type: String, enum: ["cash", "online"], required: true },
+  cashReceiver: { type: String },
+
+  // ✅ New fields for tracking status and payments
+  paymentAmount: { type: Number },
+  paymentDate: { type: Date },
+  status: { type: String, enum: ["active", "expired", "suspended", "trial"] },
 });
 
-const Member = mongoose.model("Member", memberSchema);
-
-export default Member;
+export default mongoose.model("Member", memberSchema);

@@ -5,7 +5,7 @@ import multer from "multer";
 const upload = multer();
 const router = express.Router();
 
-// ✅ POST (JSON) — For online payment success page
+// ✅ JSON submission (Stripe Success Page)
 router.post("/", async (req, res, next) => {
   if (!req.headers["content-type"]?.includes("application/json")) return next();
 
@@ -25,6 +25,7 @@ router.post("/", async (req, res, next) => {
       cashReceiver,
     } = req.body;
 
+    // ✅ Validate required fields
     const requiredFields = [
       name,
       email,
@@ -48,10 +49,46 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    const newMember = new Member(req.body);
+    // ✅ Add extra metadata
+    const now = new Date();
+    const isExpired = new Date(expiryDate) < now;
+    const status = isExpired ? "expired" : "active";
+
+    const paymentAmount =
+      paymentMethod === "online"
+        ? membershipType === "year"
+          ? 103.1
+          : 51.55
+        : membershipType === "year"
+        ? 100
+        : 50;
+
+    const newMember = new Member({
+      name,
+      email,
+      studentNumber,
+      emergencyContactName,
+      emergencyContactPhone,
+      emergencyContactRelation,
+      waiverSigned,
+      membershipType,
+      startDate,
+      expiryDate,
+      paymentMethod,
+      cashReceiver,
+      paymentAmount,
+      paymentDate: now,
+      status,
+    });
+
     await newMember.save();
 
-    console.log("✅ New member registered (JSON):", newMember.name);
+    console.log(`✅ Member created (${paymentMethod}):`, {
+      name: newMember.name,
+      amount: newMember.paymentAmount,
+      status: newMember.status,
+    });
+
     res.status(201).json(newMember);
   } catch (err) {
     console.error("🔥 JSON member creation failed:", err.message);
@@ -59,7 +96,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// 🔁 POST (multipart) — For direct form with optional screenshot
+// 🔁 Multipart form submission (cash payment)
 router.post("/", upload.single("screenshot"), async (req, res) => {
   try {
     const {
@@ -100,10 +137,45 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       });
     }
 
-    const newMember = new Member(req.body);
+    const now = new Date();
+    const isExpired = new Date(expiryDate) < now;
+    const status = isExpired ? "expired" : "active";
+
+    const paymentAmount =
+      paymentMethod === "online"
+        ? membershipType === "year"
+          ? 103.1
+          : 51.55
+        : membershipType === "year"
+        ? 100
+        : 50;
+
+    const newMember = new Member({
+      name,
+      email,
+      studentNumber,
+      emergencyContactName,
+      emergencyContactPhone,
+      emergencyContactRelation,
+      waiverSigned,
+      membershipType,
+      startDate,
+      expiryDate,
+      paymentMethod,
+      cashReceiver,
+      paymentAmount,
+      paymentDate: now,
+      status,
+    });
+
     await newMember.save();
 
-    console.log("✅ New member registered (multipart):", newMember.name);
+    console.log(`✅ Member created (${paymentMethod}):`, {
+      name: newMember.name,
+      amount: newMember.paymentAmount,
+      status: newMember.status,
+    });
+
     res.status(201).json(newMember);
   } catch (err) {
     console.error("🔥 Multipart member creation failed:", err.message);
@@ -111,7 +183,7 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
   }
 });
 
-// GET /api/members — Fetch all members
+// 🧾 GET all members
 router.get("/", async (req, res) => {
   try {
     const members = await Member.find({});
@@ -122,7 +194,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/members/verify — Check membership status
+// ✅ GET /api/members/verify
 router.get("/verify", async (req, res) => {
   const { name } = req.query;
 

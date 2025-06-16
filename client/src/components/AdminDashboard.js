@@ -29,7 +29,7 @@ const AdminDashboard = () => {
   });
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-center">Admin Dashboard</h1>
 
       <div className="flex justify-center gap-4 mb-6">
@@ -74,6 +74,12 @@ const AdminDashboard = () => {
                   {active ? "Active" : "Expired"}
                 </span>
               </div>
+              <p className="text-sm text-gray-600">
+                Payment:{" "}
+                <strong>
+                  {member.paymentAmount ? `$${member.paymentAmount}` : "N/A"}
+                </strong>
+              </p>
               <p className="text-sm text-gray-600">
                 Expires: {expiryFormatted}
               </p>

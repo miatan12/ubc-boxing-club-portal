@@ -43,16 +43,24 @@ const RegisterForm = () => {
     };
   };
 
+  const getStripePricing = (type) => {
+    return {
+      term: {
+        amount: 5155,
+        label: "4 months (student) - $51.55",
+      },
+      year: {
+        amount: 10310,
+        label: "12 months (student) - $103.10",
+      },
+    }[type];
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("🔁 submitting...");
-
     const { startDate, expiryDate } = calculateExpiry(formData.membershipType);
-    console.log("🕒 startDate:", startDate);
-    console.log("🕒 expiryDate:", expiryDate);
 
     if (formData.paymentMethod === "cash" && !formData.cashReceiver.trim()) {
-      console.warn("🚫 Missing cash receiver");
       setStatus("error");
       alert(
         "Please enter the name of the exec who received your cash payment."
@@ -61,12 +69,10 @@ const RegisterForm = () => {
     }
 
     if (formData.paymentMethod === "online") {
-      // 🛑 Remove early return
-      // sessionStorage.setItem("submittedToStripe", "true"); ← MOVE THIS BELOW
-
       const payload = { ...formData, startDate, expiryDate };
       localStorage.setItem("boxing-form", JSON.stringify(payload));
-      console.log("📦 Stored to localStorage:", payload);
+
+      const { amount, label } = getStripePricing(formData.membershipType);
 
       try {
         const res = await fetch(
@@ -74,6 +80,7 @@ const RegisterForm = () => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount, label }),
           }
         );
 
@@ -83,13 +90,10 @@ const RegisterForm = () => {
         }
 
         const data = await res.json();
-        console.log("✅ Stripe session URL:", data.url);
-
-        // ✅ Set AFTER confirming redirect URL exists
         sessionStorage.setItem("submittedToStripe", "true");
         window.location.href = data.url;
       } catch (err) {
-        console.error("❌ Stripe redirect error:", err);
+        console.error("Stripe redirect error:", err);
         setStatus("error");
         alert("Failed to redirect to payment page.");
       }
@@ -97,7 +101,7 @@ const RegisterForm = () => {
       return;
     }
 
-    // Non-online payment path
+    // Cash payment path
     try {
       const data = new FormData();
       for (const key in formData) {
@@ -109,16 +113,9 @@ const RegisterForm = () => {
       data.append("expiryDate", expiryDate);
       if (screenshot) data.append("screenshot", screenshot);
 
-      console.log("📤 Submitting to /api/members...");
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/members`,
-        data
-      );
-
-      console.log("✅ Member created:", response.data);
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/members`, data);
       setStatus("success");
-    } catch (err) {
-      console.error("❌ Submission error:", err);
+    } catch {
       setStatus("error");
     }
   };
@@ -216,8 +213,12 @@ const RegisterForm = () => {
           onChange={handleChange}
           className="border p-2 w-full mb-4"
         >
-          <option value="term">4 months (student) - $50</option>
-          <option value="year">12 months (student) - $100</option>
+          <option value="term">
+            4 months (student): $50 cash / $51.55 online
+          </option>
+          <option value="year">
+            12 months (student): $100 cash / $103.10 online
+          </option>
         </select>
 
         <label className="block mb-2 font-medium">Payment Method</label>
@@ -229,7 +230,6 @@ const RegisterForm = () => {
         >
           <option value="">Select a payment method</option>
           <option value="online">Online Payment (Stripe)</option>
-          <option value="etransfer">E-transfer</option>
           <option value="cash">Cash (paid in-person)</option>
         </select>
 
@@ -239,28 +239,6 @@ const RegisterForm = () => {
               You’ll be redirected to a secure Stripe checkout page after
               submission.
             </p>
-          </div>
-        )}
-
-        {formData.paymentMethod === "etransfer" && (
-          <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded space-y-2">
-            <p className="whitespace-pre-wrap">
-              Send e-transfer to: <strong>deposit@ams.ubc.ca</strong>
-              {"\n"}
-              Message:{" "}
-              <code className="bg-white p-1 rounded text-xs">
-                8030-00 50050 - Membership Fee Deposit (Boxing Club)
-              </code>
-            </p>
-            <label className="block text-sm font-medium mt-2">
-              Upload Screenshot of Payment Confirmation
-              <input
-                type="file"
-                accept="image/*"
-                className="block mt-1"
-                onChange={handleFileChange}
-              />
-            </label>
           </div>
         )}
 
@@ -280,6 +258,7 @@ const RegisterForm = () => {
         )}
       </div>
 
+      {/* Submit */}
       <div className="text-center">
         <button
           type="submit"

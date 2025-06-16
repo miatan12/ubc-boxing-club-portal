@@ -5,9 +5,15 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // Add this to .env
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 router.post("/create-checkout-session", async (req, res) => {
+  const { amount, label } = req.body;
+
+  if (!amount || !label) {
+    return res.status(400).json({ error: "Missing amount or label." });
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -17,9 +23,9 @@ router.post("/create-checkout-session", async (req, res) => {
           price_data: {
             currency: "cad",
             product_data: {
-              name: "UBC Boxing Club Membership (4 months)",
+              name: `UBC Boxing Club Membership – ${label}`,
             },
-            unit_amount: 5000, // $50 CAD
+            unit_amount: amount,
           },
           quantity: 1,
         },

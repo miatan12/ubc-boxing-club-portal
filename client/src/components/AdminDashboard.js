@@ -63,7 +63,11 @@ const AdminDashboard = () => {
               }`}
             >
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold">{member.name}</h3>
+                <div>
+                  <h3 className="text-lg font-semibold">{member.name}</h3>
+                  <p className="text-sm text-gray-500">{member.email}</p>{" "}
+                  {/* ✅ Email added */}
+                </div>
                 <span
                   className={`text-sm font-medium px-2 py-1 rounded ${
                     active

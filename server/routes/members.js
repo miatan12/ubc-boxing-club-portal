@@ -183,6 +183,30 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
   }
 });
 
+// Membership Renewal
+router.post("/renew", async (req, res) => {
+  const { email, paymentMethod, paymentAmount, newExpiryDate } = req.body;
+
+  try {
+    const member = await Member.findOne({ email });
+
+    if (!member) return res.status(404).json({ message: "Member not found" });
+
+    member.paymentMethod = paymentMethod;
+    member.paymentAmount = paymentAmount;
+    member.paymentDate = new Date();
+    member.expiryDate = newExpiryDate;
+    member.status = "active";
+
+    await member.save();
+
+    res.json({ message: "Membership renewed!" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // 🧾 GET all members
 router.get("/", async (req, res) => {
   try {

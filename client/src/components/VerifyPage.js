@@ -64,29 +64,47 @@ const VerifyPage = () => {
           <p className="text-red-600">Something went wrong.</p>
         )}
         {status === "done" && result && (
-          <>
-            {result.found ? (
-              result.active ? (
-                <p className="text-green-600">
-                  ✅ {result.name} is an active member (expires{" "}
-                  {new Date(result.expiryDate).toLocaleDateString()})
-                </p>
-              ) : (
-                <p className="text-red-600">
-                  ❌ {result.name}'s membership expired on{" "}
-                  {new Date(result.expiryDate).toLocaleDateString()}
-                </p>
-              )
+          <div
+            className={`rounded-md p-4 mt-6 text-center border-2 ${
+              result.active
+                ? "border-green-600 bg-green-50 text-green-800"
+                : "border-red-600 bg-red-50 text-red-800"
+            }`}
+          >
+            {result.active ? (
+              <>
+                <div className="text-2xl font-bold mb-2">✅ Access Granted</div>
+                <div>
+                  {result.name} is an <strong>active member</strong>
+                  <br />
+                  <span className="text-sm text-gray-700">
+                    Expiry: {new Date(result.expiryDate).toLocaleDateString()}
+                  </span>
+                </div>
+              </>
             ) : (
-              <p className="text-red-600">❌ Member Not Found</p>
+              <>
+                <div className="text-2xl font-bold mb-2">❌ Access Denied</div>
+                <div>
+                  {result.name}&apos;s membership <strong>expired</strong>
+                  <br />
+                  <span className="text-sm text-gray-700">
+                    Expiry: {new Date(result.expiryDate).toLocaleDateString()}
+                  </span>
+                </div>
+              </>
             )}
             <button
-              onClick={handleReset}
-              className="mt-4 text-sm underline text-blue-600 hover:text-blue-800"
+              onClick={() => {
+                setQuery("");
+                setStatus("idle");
+                setResult(null);
+              }}
+              className="mt-4 text-blue-600 underline hover:text-blue-800"
             >
               Check another member
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

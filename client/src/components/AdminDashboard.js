@@ -87,6 +87,14 @@ const AdminDashboard = () => {
               <p className="text-sm text-gray-600">
                 Expires: {expiryFormatted}
               </p>
+              <p className="text-sm text-gray-600">
+                Classes Attended:{" "}
+                <strong>
+                  {Array.isArray(member.attendance)
+                    ? member.attendance.length
+                    : 0}
+                </strong>
+              </p>
             </div>
           );
         })}

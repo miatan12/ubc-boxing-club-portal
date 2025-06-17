@@ -13,11 +13,10 @@ const memberSchema = new mongoose.Schema({
   expiryDate: { type: Date, required: true },
   paymentMethod: { type: String, enum: ["cash", "online"], required: true },
   cashReceiver: { type: String },
-
-  // ✅ New fields for tracking status and payments
   paymentAmount: { type: Number },
   paymentDate: { type: Date },
   status: { type: String, enum: ["active", "expired", "suspended", "trial"] },
+  attendance: { type: [Date], default: [] },
 });
 
 export default mongoose.model("Member", memberSchema);

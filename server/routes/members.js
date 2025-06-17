@@ -207,6 +207,39 @@ router.post("/renew", async (req, res) => {
   }
 });
 
+// 📌 Log class attendance for a member
+router.post("/checkin", async (req, res) => {
+  const { emailOrName } = req.body;
+
+  if (!emailOrName || !emailOrName.trim()) {
+    return res.status(400).json({ error: "Email or name is required." });
+  }
+
+  try {
+    const member = await Member.findOne({
+      $or: [
+        { email: new RegExp(emailOrName, "i") },
+        { name: new RegExp(emailOrName, "i") },
+      ],
+    });
+
+    if (!member) return res.status(404).json({ error: "Member not found." });
+
+    const now = new Date();
+    member.attendance.push(now);
+    await member.save();
+
+    res.json({
+      message: "Check-in recorded.",
+      name: member.name,
+      totalClasses: member.attendance.length,
+    });
+  } catch (err) {
+    console.error("❌ Check-in error:", err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
 // 🧾 GET all members
 router.get("/", async (req, res) => {
   try {
@@ -218,33 +251,35 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ✅ GET /api/members/verify
-router.get("/verify", async (req, res) => {
-  const { name } = req.query;
+// 🔍 Search members by partial name/email
+router.get("/search", async (req, res) => {
+  const { query } = req.query;
 
-  if (!name || !name.trim()) {
-    return res.status(400).json({ error: "Name is required." });
+  if (!query || !query.trim()) {
+    return res.status(400).json({ error: "Query is required." });
   }
 
   try {
-    const member = await Member.findOne({
-      $or: [{ name: new RegExp(name, "i") }, { email: new RegExp(name, "i") }],
+    const regex = new RegExp(query.trim(), "i");
+
+    const members = await Member.find({
+      $or: [{ name: regex }, { email: regex }],
     });
 
-    if (!member) {
-      return res.json({ found: false });
-    }
-
-    const isActive = new Date(member.expiryDate) >= new Date();
-
-    return res.json({
-      found: true,
-      active: isActive,
-      name: member.name,
-      expiryDate: member.expiryDate,
+    const result = members.map((m) => {
+      const isActive = new Date(m.expiryDate) >= new Date();
+      return {
+        name: m.name,
+        email: m.email,
+        paymentAmount: m.paymentAmount,
+        expiryDate: m.expiryDate,
+        status: isActive ? "active" : "expired",
+      };
     });
+
+    res.json(result);
   } catch (err) {
-    console.error("🔥 Verify route error:", err);
+    console.error("Search error:", err);
     res.status(500).json({ error: "Server error." });
   }
 });

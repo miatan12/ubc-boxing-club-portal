@@ -17,7 +17,6 @@ const RegisterForm = () => {
     cashReceiver: "",
   });
 
-  const [screenshot, setScreenshot] = useState(null);
   const [status, setStatus] = useState("");
 
   const handleChange = (e) => {
@@ -26,10 +25,6 @@ const RegisterForm = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-  };
-
-  const handleFileChange = (e) => {
-    setScreenshot(e.target.files[0]);
   };
 
   const calculateExpiry = (membershipType) => {
@@ -111,7 +106,6 @@ const RegisterForm = () => {
       }
       data.append("startDate", startDate);
       data.append("expiryDate", expiryDate);
-      if (screenshot) data.append("screenshot", screenshot);
 
       await axios.post(`${process.env.REACT_APP_API_URL}/api/members`, data);
       setStatus("success");
@@ -125,9 +119,19 @@ const RegisterForm = () => {
       onSubmit={handleSubmit}
       className="space-y-8 p-6 max-w-xl mx-auto bg-white shadow rounded"
     >
-      <h2 className="text-2xl font-bold text-center">
-        UBC Boxing Club Registration
-      </h2>
+      <div className="mb-4">
+        <div className="text-left">
+          <a
+            href="/"
+            className="text-sm text-blue-600 underline hover:text-blue-800"
+          >
+            ← Back to Home
+          </a>
+        </div>
+        <h2 className="text-2xl font-bold text-center mt-2">
+          UBC Boxing Club Registration
+        </h2>
+      </div>
 
       {/* Personal Info */}
       <div>

@@ -74,7 +74,19 @@ const RenewForm = () => {
 
   return (
     <div className="p-4 max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Renew Membership</h2>
+      <div className="mb-4">
+        <div className="text-left">
+          <a
+            href="/"
+            className="text-sm text-blue-600 underline hover:text-blue-800"
+          >
+            ← Back to Home
+          </a>
+        </div>
+        <h2 className="text-2xl font-bold text-center mt-2">
+          Renew Membership
+        </h2>
+      </div>
 
       <label className="block mb-1 font-medium">Email</label>
       <input
@@ -97,7 +109,7 @@ const RenewForm = () => {
 
       <button
         onClick={handleStripeRenewal}
-        className="bg-purple-600 text-white w-full py-2 rounded hover:bg-purple-700"
+        className="bg-blue-600 text-white w-full py-2 rounded hover:bg-blue-700"
         disabled={status === "loading"}
       >
         {status === "loading" ? "Redirecting..." : "Pay & Renew"}

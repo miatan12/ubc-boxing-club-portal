@@ -30,7 +30,16 @@ const AdminDashboard = () => {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">Admin Dashboard</h1>
+      <div className="relative p-6 max-w-3xl mx-auto">
+        <button
+          onClick={() => (window.location.href = "/")}
+          className="absolute left-0 top-1 text-blue-600 text-sm hover:text-blue-800"
+        >
+          ← Back to Home
+        </button>
+
+        <h1 className="text-3xl font-bold text-center">Admin Dashboard</h1>
+      </div>
 
       <div className="flex justify-center gap-4 mb-6">
         {["all", "active", "expired"].map((type) => (
@@ -65,8 +74,7 @@ const AdminDashboard = () => {
               <div className="flex justify-between items-center mb-2">
                 <div>
                   <h3 className="text-lg font-semibold">{member.name}</h3>
-                  <p className="text-sm text-gray-500">{member.email}</p>{" "}
-                  {/* ✅ Email added */}
+                  <p className="text-sm text-gray-500">{member.email}</p>
                 </div>
                 <span
                   className={`text-sm font-medium px-2 py-1 rounded ${

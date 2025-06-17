@@ -75,7 +75,17 @@ const VerifyPage = () => {
 
   return (
     <div className="p-6 max-w-xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4 text-center">Member Check-In</h2>
+      <div className="mb-6">
+        <div className="text-left">
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="text-sm text-blue-600 underline hover:text-blue-800"
+          >
+            ← Back to Home
+          </button>
+        </div>
+        <h2 className="text-2xl font-bold text-center mt-2">Member Check-In</h2>
+      </div>
 
       <input
         type="text"

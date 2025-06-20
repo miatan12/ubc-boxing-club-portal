@@ -1,19 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 const SuccessPage = () => {
   const [status, setStatus] = useState("loading"); // loading | success | error
+  const hasRun = useRef(false); // prevent double execution in React 18 StrictMode
+
+  // ✅ Reset flags if user re-enters page from home
+  useEffect(() => {
+    sessionStorage.removeItem("already-submitted");
+    sessionStorage.removeItem("renewal-submitted");
+  }, []);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     const submitData = async () => {
       try {
-        // 🟦 1. Handle new member registration (boxing-form)
-        if (
-          sessionStorage.getItem("already-submitted") !== "true" &&
-          localStorage.getItem("boxing-form")
-        ) {
-          const raw = JSON.parse(localStorage.getItem("boxing-form"));
+        console.log("🔵 SuccessPage loaded");
 
+        const alreadySubmitted = sessionStorage.getItem("already-submitted");
+        const boxingForm = localStorage.getItem("boxing-form");
+        const renewalData = localStorage.getItem("renewalData");
+        const renewalSubmitted = sessionStorage.getItem("renewal-submitted");
+
+        console.log("📦 already-submitted:", alreadySubmitted);
+        console.log("📦 boxing-form:", boxingForm ? "exists" : "not found");
+        console.log("📦 renewalData:", renewalData ? "exists" : "not found");
+        console.log("📦 renewal-submitted:", renewalSubmitted);
+
+        // 🟦 1. New member registration
+        if (alreadySubmitted !== "true" && boxingForm) {
+          const raw = JSON.parse(boxingForm);
           const {
             name,
             email,
@@ -29,7 +47,7 @@ const SuccessPage = () => {
             cashReceiver = "",
           } = raw;
 
-          const cleaned = {
+          const payload = {
             name,
             email,
             studentNumber,
@@ -44,45 +62,50 @@ const SuccessPage = () => {
             cashReceiver,
           };
 
+          console.log("🚀 Submitting new member from localStorage...");
+          console.log("📮 Payload:", payload);
+
+          // 🛑 Set early to prevent duplicate submit on re-render
+          sessionStorage.setItem("already-submitted", "true");
+
           await axios.post(
             `${process.env.REACT_APP_API_URL}/api/members`,
-            cleaned,
-            {
-              headers: { "Content-Type": "application/json" },
-            }
+            payload,
+            { headers: { "Content-Type": "application/json" } }
           );
 
-          sessionStorage.setItem("already-submitted", "true");
           localStorage.removeItem("boxing-form");
           sessionStorage.removeItem("submittedToStripe");
 
+          console.log("✅ Member successfully submitted");
           setStatus("success");
           return;
         }
 
-        // 🟪 2. Handle renewal submission (renewalData)
-        if (
-          sessionStorage.getItem("renewal-submitted") !== "true" &&
-          localStorage.getItem("renewalData")
-        ) {
-          const renewal = JSON.parse(localStorage.getItem("renewalData"));
+        // 🟪 2. Membership renewal
+        if (renewalSubmitted !== "true" && renewalData) {
+          const renewal = JSON.parse(renewalData);
+
+          console.log("🚀 Submitting renewal data...");
+          console.log("📮 Payload:", renewal);
+
+          sessionStorage.setItem("renewal-submitted", "true");
 
           await axios.post(
             `${process.env.REACT_APP_API_URL}/api/members/renew`,
             renewal,
-            {
-              headers: { "Content-Type": "application/json" },
-            }
+            { headers: { "Content-Type": "application/json" } }
           );
 
-          sessionStorage.setItem("renewal-submitted", "true");
           localStorage.removeItem("renewalData");
           sessionStorage.removeItem("renewalReady");
 
+          console.log("✅ Renewal successfully submitted");
           setStatus("success");
           return;
         }
 
+        console.warn("⚠️ Nothing to submit. Showing error.");
         setStatus("error");
       } catch (err) {
         console.error("❌ Submission failed after payment:", err);

@@ -9,8 +9,6 @@ const router = express.Router();
 router.post("/", async (req, res, next) => {
   if (!req.headers["content-type"]?.includes("application/json")) return next();
 
-  console.log("📨 Received JSON member registration request");
-
   try {
     const {
       name,
@@ -27,8 +25,6 @@ router.post("/", async (req, res, next) => {
       cashReceiver,
     } = req.body;
 
-    console.log("🔍 Incoming data:", req.body);
-
     // ✅ Validate required fields
     const requiredFields = [
       name,
@@ -44,24 +40,16 @@ router.post("/", async (req, res, next) => {
     ];
 
     if (requiredFields.some((field) => !field)) {
-      console.log("❌ Missing required field(s)");
       return res.status(400).json({ error: "Missing required fields." });
     }
 
     if (paymentMethod === "cash" && !cashReceiver) {
-      console.log("❌ Missing cashReceiver for cash payment");
       return res.status(400).json({
         error: "Please enter the name of the exec who collected cash.",
       });
     }
 
-    // Check for duplicates (same email and startDate)
-    const existing = await Member.findOne({ email, startDate });
-    if (existing) {
-      console.log("⚠️ Duplicate submission detected for:", email, startDate);
-      return res.status(409).json({ error: "Member already registered." });
-    }
-
+    // ✅ Add extra metadata
     const now = new Date();
     const isExpired = new Date(expiryDate) < now;
     const status = isExpired ? "expired" : "active";
@@ -109,9 +97,7 @@ router.post("/", async (req, res, next) => {
 });
 
 // 🔁 Multipart form submission (cash payment)
-router.post("/", upload.none(), async (req, res) => {
-  console.log("📨 Received multipart/form-data member registration request");
-
+router.post("/", upload.single("screenshot"), async (req, res) => {
   try {
     const {
       name,
@@ -128,8 +114,6 @@ router.post("/", upload.none(), async (req, res) => {
       cashReceiver,
     } = req.body;
 
-    console.log("🔍 Incoming form data:", req.body);
-
     const requiredFields = [
       name,
       email,
@@ -144,22 +128,13 @@ router.post("/", upload.none(), async (req, res) => {
     ];
 
     if (requiredFields.some((field) => !field)) {
-      console.log("❌ Missing required field(s)");
       return res.status(400).json({ error: "Missing required fields." });
     }
 
     if (paymentMethod === "cash" && !cashReceiver) {
-      console.log("❌ Missing cashReceiver for cash payment");
       return res.status(400).json({
         error: "Please enter the name of the exec who collected cash.",
       });
-    }
-
-    // Check for duplicates (same email and startDate)
-    const existing = await Member.findOne({ email, startDate });
-    if (existing) {
-      console.log("⚠️ Duplicate submission detected for:", email, startDate);
-      return res.status(409).json({ error: "Member already registered." });
     }
 
     const now = new Date();
@@ -205,6 +180,107 @@ router.post("/", upload.none(), async (req, res) => {
   } catch (err) {
     console.error("🔥 Multipart member creation failed:", err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Membership Renewal
+router.post("/renew", async (req, res) => {
+  const { email, paymentMethod, paymentAmount, newExpiryDate } = req.body;
+
+  try {
+    const member = await Member.findOne({ email });
+
+    if (!member) return res.status(404).json({ message: "Member not found" });
+
+    member.paymentMethod = paymentMethod;
+    member.paymentAmount = paymentAmount;
+    member.paymentDate = new Date();
+    member.expiryDate = newExpiryDate;
+    member.status = "active";
+
+    await member.save();
+
+    res.json({ message: "Membership renewed!" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 📌 Log class attendance for a member
+router.post("/checkin", async (req, res) => {
+  const { emailOrName } = req.body;
+
+  if (!emailOrName || !emailOrName.trim()) {
+    return res.status(400).json({ error: "Email or name is required." });
+  }
+
+  try {
+    const member = await Member.findOne({
+      $or: [
+        { email: new RegExp(emailOrName, "i") },
+        { name: new RegExp(emailOrName, "i") },
+      ],
+    });
+
+    if (!member) return res.status(404).json({ error: "Member not found." });
+
+    const now = new Date();
+    member.attendance.push(now);
+    await member.save();
+
+    res.json({
+      message: "Check-in recorded.",
+      name: member.name,
+      totalClasses: member.attendance.length,
+    });
+  } catch (err) {
+    console.error("❌ Check-in error:", err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
+// 🧾 GET all members
+router.get("/", async (req, res) => {
+  try {
+    const members = await Member.find({});
+    res.json(members);
+  } catch (err) {
+    console.error("Failed to fetch members:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// 🔍 Search members by partial name/email
+router.get("/search", async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || !query.trim()) {
+    return res.status(400).json({ error: "Query is required." });
+  }
+
+  try {
+    const regex = new RegExp(query.trim(), "i");
+
+    const members = await Member.find({
+      $or: [{ name: regex }, { email: regex }],
+    });
+
+    const result = members.map((m) => {
+      const isActive = new Date(m.expiryDate) >= new Date();
+      return {
+        name: m.name,
+        email: m.email,
+        paymentAmount: m.paymentAmount,
+        expiryDate: m.expiryDate,
+        status: isActive ? "active" : "expired",
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error("Search error:", err);
+    res.status(500).json({ error: "Server error." });
   }
 });
 

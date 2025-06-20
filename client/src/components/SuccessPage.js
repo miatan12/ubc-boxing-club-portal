@@ -123,6 +123,15 @@ const SuccessPage = () => {
       {status === "loading" && (
         <h1 className="text-2xl font-bold text-gray-700">Finalizing...</h1>
       )}
+      {/* Back to home link */}
+      <div className="text-left mb-4">
+        <a
+          href="/"
+          className="text-sm text-blue-600 underline hover:text-blue-800"
+        >
+          ← Back to Home
+        </a>
+      </div>
       {status === "success" && (
         <>
           <h1 className="text-3xl font-bold text-green-600">

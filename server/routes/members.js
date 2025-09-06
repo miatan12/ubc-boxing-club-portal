@@ -5,6 +5,36 @@ import multer from "multer";
 const upload = multer();
 const router = express.Router();
 
+// ---- helpers ----------------------------------------------------
+const VALID_TYPES = new Set(["term", "year", "nonstudent"]);
+const VALID_PAY = new Set(["cash", "online"]);
+
+function computePaymentAmount(membershipType, paymentMethod) {
+  // dollars
+  if (paymentMethod === "online") {
+    if (membershipType === "term") return 51.55;
+    if (membershipType === "year") return 103.1;
+    if (membershipType === "nonstudent") return 82.5;
+  } else {
+    if (membershipType === "term") return 50;
+    if (membershipType === "year") return 100;
+    if (membershipType === "nonstudent") return 80;
+  }
+  return 0;
+}
+
+function deriveStatus(expiryDate) {
+  return new Date(expiryDate) < new Date() ? "expired" : "active";
+}
+
+function normalizeBody(body) {
+  const b = { ...body };
+  if (typeof b.email === "string") b.email = b.email.trim().toLowerCase();
+  if (b.membershipType === "semester") b.membershipType = "term"; // legacy guard
+  return b;
+}
+// ----------------------------------------------------------------
+
 // ✅ JSON submission (Stripe Success Page)
 router.post("/", async (req, res, next) => {
   if (!req.headers["content-type"]?.includes("application/json")) return next();
@@ -23,10 +53,10 @@ router.post("/", async (req, res, next) => {
       expiryDate,
       paymentMethod,
       cashReceiver,
-    } = req.body;
+    } = normalizeBody(req.body);
 
-    // ✅ Validate required fields
-    const requiredFields = [
+    // Required fields
+    const required = [
       name,
       email,
       studentNumber,
@@ -38,9 +68,15 @@ router.post("/", async (req, res, next) => {
       expiryDate,
       paymentMethod,
     ];
-
-    if (requiredFields.some((field) => !field)) {
+    if (required.some((v) => !v)) {
       return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    if (!VALID_TYPES.has(membershipType)) {
+      return res.status(400).json({ error: "Invalid membership type." });
+    }
+    if (!VALID_PAY.has(paymentMethod)) {
+      return res.status(400).json({ error: "Invalid payment method." });
     }
 
     if (paymentMethod === "cash" && !cashReceiver) {
@@ -49,19 +85,8 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    // ✅ Add extra metadata
+    const paymentAmount = computePaymentAmount(membershipType, paymentMethod);
     const now = new Date();
-    const isExpired = new Date(expiryDate) < now;
-    const status = isExpired ? "expired" : "active";
-
-    const paymentAmount =
-      paymentMethod === "online"
-        ? membershipType === "year"
-          ? 103.1
-          : 51.55
-        : membershipType === "year"
-        ? 100
-        : 50;
 
     const newMember = new Member({
       name,
@@ -72,13 +97,13 @@ router.post("/", async (req, res, next) => {
       emergencyContactRelation,
       waiverSigned,
       membershipType,
-      startDate,
-      expiryDate,
+      startDate: new Date(startDate),
+      expiryDate: new Date(expiryDate),
       paymentMethod,
       cashReceiver,
       paymentAmount,
       paymentDate: now,
-      status,
+      status: deriveStatus(expiryDate),
     });
 
     await newMember.save();
@@ -91,8 +116,8 @@ router.post("/", async (req, res, next) => {
 
     res.status(201).json(newMember);
   } catch (err) {
-    console.error("🔥 JSON member creation failed:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("🔥 JSON member creation failed:", err);
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
@@ -112,9 +137,9 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       expiryDate,
       paymentMethod,
       cashReceiver,
-    } = req.body;
+    } = normalizeBody(req.body);
 
-    const requiredFields = [
+    const required = [
       name,
       email,
       studentNumber,
@@ -126,9 +151,15 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       expiryDate,
       paymentMethod,
     ];
-
-    if (requiredFields.some((field) => !field)) {
+    if (required.some((v) => !v)) {
       return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    if (!VALID_TYPES.has(membershipType)) {
+      return res.status(400).json({ error: "Invalid membership type." });
+    }
+    if (!VALID_PAY.has(paymentMethod)) {
+      return res.status(400).json({ error: "Invalid payment method." });
     }
 
     if (paymentMethod === "cash" && !cashReceiver) {
@@ -137,18 +168,8 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       });
     }
 
+    const paymentAmount = computePaymentAmount(membershipType, paymentMethod);
     const now = new Date();
-    const isExpired = new Date(expiryDate) < now;
-    const status = isExpired ? "expired" : "active";
-
-    const paymentAmount =
-      paymentMethod === "online"
-        ? membershipType === "year"
-          ? 103.1
-          : 51.55
-        : membershipType === "year"
-        ? 100
-        : 50;
 
     const newMember = new Member({
       name,
@@ -159,13 +180,13 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       emergencyContactRelation,
       waiverSigned,
       membershipType,
-      startDate,
-      expiryDate,
+      startDate: new Date(startDate),
+      expiryDate: new Date(expiryDate),
       paymentMethod,
       cashReceiver,
       paymentAmount,
       paymentDate: now,
-      status,
+      status: deriveStatus(expiryDate),
     });
 
     await newMember.save();
@@ -178,31 +199,54 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
 
     res.status(201).json(newMember);
   } catch (err) {
-    console.error("🔥 Multipart member creation failed:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("🔥 Multipart member creation failed:", err);
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
-// Membership Renewal
+// 🔍 Verify if member exists & active/expired
+router.get("/verify", async (req, res) => {
+  const email = (req.query.name || "").toString().trim().toLowerCase();
+  try {
+    const member = await Member.findOne({ email });
+    if (!member) return res.json({ found: false });
+
+    const active =
+      member.expiryDate && new Date(member.expiryDate) > new Date();
+    res.json({ found: true, active });
+  } catch (err) {
+    console.error("❌ Verify error:", err);
+    res.status(500).json({ found: false, error: "Server error" });
+  }
+});
+
+// 🔁 Membership Renewal (cash or online)
 router.post("/renew", async (req, res) => {
   const { email, paymentMethod, paymentAmount, newExpiryDate } = req.body;
 
   try {
-    const member = await Member.findOne({ email });
-
+    const member = await Member.findOne({ email: email?.toLowerCase().trim() });
     if (!member) return res.status(404).json({ message: "Member not found" });
 
+    if (!VALID_PAY.has(paymentMethod)) {
+      return res.status(400).json({ message: "Invalid payment method." });
+    }
+    const expiry = new Date(newExpiryDate);
+    if (Number.isNaN(expiry.getTime())) {
+      return res.status(400).json({ message: "Invalid expiry date." });
+    }
+
     member.paymentMethod = paymentMethod;
-    member.paymentAmount = paymentAmount;
+    member.paymentAmount = Number(paymentAmount);
     member.paymentDate = new Date();
-    member.expiryDate = newExpiryDate;
+    member.expiryDate = expiry;
     member.status = "active";
 
     await member.save();
 
     res.json({ message: "Membership renewed!" });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Renew error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -210,23 +254,22 @@ router.post("/renew", async (req, res) => {
 // 📌 Log class attendance for a member
 router.post("/checkin", async (req, res) => {
   const { emailOrName } = req.body;
-
   if (!emailOrName || !emailOrName.trim()) {
     return res.status(400).json({ error: "Email or name is required." });
   }
 
   try {
+    const term = emailOrName.trim();
     const member = await Member.findOne({
       $or: [
-        { email: new RegExp(emailOrName, "i") },
-        { name: new RegExp(emailOrName, "i") },
+        { email: new RegExp(`^${term}$`, "i") },
+        { name: new RegExp(term, "i") },
       ],
     });
 
     if (!member) return res.status(404).json({ error: "Member not found." });
 
-    const now = new Date();
-    member.attendance.push(now);
+    member.attendance.push(new Date());
     await member.save();
 
     res.json({
@@ -241,7 +284,7 @@ router.post("/checkin", async (req, res) => {
 });
 
 // 🧾 GET all members
-router.get("/", async (req, res) => {
+router.get("/", async (_req, res) => {
   try {
     const members = await Member.find({});
     res.json(members);
@@ -254,29 +297,22 @@ router.get("/", async (req, res) => {
 // 🔍 Search members by partial name/email
 router.get("/search", async (req, res) => {
   const { query } = req.query;
-
   if (!query || !query.trim()) {
     return res.status(400).json({ error: "Query is required." });
   }
 
   try {
     const regex = new RegExp(query.trim(), "i");
-
     const members = await Member.find({
       $or: [{ name: regex }, { email: regex }],
     });
-
-    const result = members.map((m) => {
-      const isActive = new Date(m.expiryDate) >= new Date();
-      return {
-        name: m.name,
-        email: m.email,
-        paymentAmount: m.paymentAmount,
-        expiryDate: m.expiryDate,
-        status: isActive ? "active" : "expired",
-      };
-    });
-
+    const result = members.map((m) => ({
+      name: m.name,
+      email: m.email,
+      paymentAmount: m.paymentAmount,
+      expiryDate: m.expiryDate,
+      status: new Date(m.expiryDate) >= new Date() ? "active" : "expired",
+    }));
     res.json(result);
   } catch (err) {
     console.error("Search error:", err);

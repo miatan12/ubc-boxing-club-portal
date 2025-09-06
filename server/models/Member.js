@@ -8,7 +8,11 @@ const memberSchema = new mongoose.Schema({
   emergencyContactPhone: { type: String, required: true },
   emergencyContactRelation: { type: String, required: true },
   waiverSigned: { type: Boolean, required: true },
-  membershipType: { type: String, enum: ["term", "year"], required: true },
+  membershipType: {
+    type: String,
+    enum: ["term", "year", "nonstudent"],
+    required: true,
+  },
   startDate: { type: Date, required: true },
   expiryDate: { type: Date, required: true },
   paymentMethod: { type: String, enum: ["cash", "online"], required: true },

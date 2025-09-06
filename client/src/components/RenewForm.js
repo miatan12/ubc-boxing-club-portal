@@ -1,76 +1,107 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+// Server enforces Stripe price; we only need dollars for our own /renew payload
+const ONLINE_DOLLARS = { term: 51.55, year: 103.1, nonstudent: 82.5 };
+const CASH_DOLLARS = { term: 50, year: 100, nonstudent: 80 };
+
+const LABELS = {
+  online: {
+    term: "Renewal — Student — 1 Term (4 months) — $51.55",
+    year: "Renewal — Student — 3 Terms (12 months) — $103.10",
+    nonstudent: "Renewal — Non-Student — 12 months — $82.50",
+  },
+  cash: {
+    term: "Renewal — Student — 1 Term (4 months) — $50",
+    year: "Renewal — Student — 3 Terms (12 months) — $100",
+    nonstudent: "Renewal — Non-Student — 12 months — $80",
+  },
+};
+
 const RenewForm = () => {
   const [email, setEmail] = useState("");
-  const [membershipType, setMembershipType] = useState("term");
+  const [paymentMethod, setPaymentMethod] = useState(""); // "online" | "cash"
+  const [membershipType, setMembershipType] = useState(""); // "term" | "year" | "nonstudent"
   const [status, setStatus] = useState("idle"); // idle | loading | error
 
+  const API_BASE =
+    process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
+    "http://localhost:5050";
+  const ORIGIN = window.location.origin;
+
   const handleStripeRenewal = async () => {
-    if (!email.trim()) {
-      alert("Please enter your email.");
-      return;
-    }
+    const emailNorm = email.trim().toLowerCase();
+    if (!emailNorm) return alert("Please enter your email.");
+    if (!paymentMethod) return alert("Please choose a payment type.");
+    if (!membershipType) return alert("Please choose a membership option.");
 
     setStatus("loading");
-
     try {
-      // Step 1: Check if email exists and is expired
-      const verifyRes = await axios.get(
-        `http://localhost:5050/api/members/verify?name=${encodeURIComponent(
-          email
-        )}`
+      // Verify
+      const verify = await axios.get(
+        `${API_BASE}/api/members/verify?name=${encodeURIComponent(emailNorm)}`
       );
-
-      if (!verifyRes.data.found) {
+      if (!verify.data?.found) {
         setStatus("error");
-        alert("Member not found. Please check your email.");
+        return alert("Member not found.");
+      }
+      if (verify.data?.active) {
+        setStatus("error");
+        return alert("Your membership is still active. No need to renew yet.");
+      }
+
+      // Compute new expiry
+      const months = membershipType === "term" ? 4 : 12;
+      const now = new Date();
+      const newExpiry = new Date(now);
+      newExpiry.setMonth(now.getMonth() + months);
+
+      if (paymentMethod === "cash") {
+        // Direct server update
+        await axios.post(`${API_BASE}/api/members/renew`, {
+          email: emailNorm,
+          paymentMethod: "cash",
+          paymentAmount: CASH_DOLLARS[membershipType],
+          newExpiryDate: newExpiry.toISOString(),
+        });
+        setStatus("idle");
+        alert("Renewal recorded! Redirecting to home…");
+        window.location.href = "/";
         return;
       }
 
-      if (verifyRes.data.active) {
-        setStatus("error");
-        alert("Your membership is still active. No need to renew yet!");
-        return;
-      }
-
-      // Step 2: Prepare renewal
-      const paymentAmount = membershipType === "year" ? 10310 : 5155;
-      const today = new Date();
-      const newExpiry = new Date();
-      newExpiry.setMonth(
-        today.getMonth() + (membershipType === "year" ? 12 : 4)
-      );
-
+      // Online (Stripe): server enforces price by plan
       const renewalData = {
-        email,
+        email: emailNorm,
         paymentMethod: "online",
-        paymentAmount: paymentAmount / 100,
-        newExpiryDate: newExpiry,
+        paymentAmount: ONLINE_DOLLARS[membershipType], // dollars for our /renew call after success
+        newExpiryDate: newExpiry.toISOString(),
       };
-
       localStorage.setItem("renewalData", JSON.stringify(renewalData));
       sessionStorage.setItem("renewalReady", "true");
 
-      // Step 3: Create Stripe session
-      const stripeSession = await axios.post(
-        "http://localhost:5050/api/checkout/create-checkout-session",
+      const { data } = await axios.post(
+        `${API_BASE}/api/checkout/create-checkout-session`,
         {
-          amount: paymentAmount,
-          label:
-            membershipType === "year"
-              ? "Renewal – Full Year"
-              : "Renewal – 4 Month Term",
+          plan: membershipType, // << send plan, not amount
+          label: LABELS.online[membershipType],
+          type: "renew",
+          successUrl: `${ORIGIN}/renew-success`,
+          cancelUrl: `${ORIGIN}/renew`,
         }
       );
-
-      window.location.href = stripeSession.data.url;
+      if (!data?.url) throw new Error("Payment session not created.");
+      window.location.href = data.url;
     } catch (err) {
       console.error("❌ Renewal error:", err);
       setStatus("error");
-      alert("Something went wrong. Please try again.");
+      alert(
+        err?.response?.data?.error || err.message || "Something went wrong."
+      );
     }
   };
+
+  const options = paymentMethod ? LABELS[paymentMethod] : null;
 
   return (
     <div className="p-4 max-w-md mx-auto">
@@ -97,22 +128,60 @@ const RenewForm = () => {
         onChange={(e) => setEmail(e.target.value)}
       />
 
-      <label className="block mb-1 font-medium">Membership Type</label>
+      <label className="block mb-1 font-medium">Payment Type</label>
+      <select
+        className="w-full mb-4 p-2 border rounded"
+        value={paymentMethod}
+        onChange={(e) => {
+          setPaymentMethod(e.target.value);
+          setMembershipType("");
+        }}
+      >
+        <option value="">Choose payment type…</option>
+        <option value="online">Online (Stripe)</option>
+        <option value="cash">Cash (paid in-person)</option>
+      </select>
+
+      <label className="block mb-1 font-medium">Renewal Option</label>
       <select
         className="w-full mb-6 p-2 border rounded"
         value={membershipType}
         onChange={(e) => setMembershipType(e.target.value)}
+        disabled={!paymentMethod}
+        required
       >
-        <option value="term">4-Month Term ($51.55)</option>
-        <option value="year">Full Year ($103.10)</option>
+        <option value="">
+          {paymentMethod ? "Choose membership…" : "Select payment type first"}
+        </option>
+
+        {paymentMethod && (
+          <>
+            <option value="term">{options.term}</option>
+            <option value="year">{options.year}</option>
+            <option value="nonstudent">{options.nonstudent}</option>
+          </>
+        )}
       </select>
+
+      {paymentMethod === "online" && (
+        <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded">
+          <p>
+            You’ll be redirected to a secure Stripe checkout page after clicking
+            “Pay & Renew”.
+          </p>
+        </div>
+      )}
 
       <button
         onClick={handleStripeRenewal}
-        className="bg-blue-600 text-white w-full py-2 rounded hover:bg-blue-700"
+        className="bg-blue-600 text-white w-full py-2 rounded hover:bg-blue-700 mt-4"
         disabled={status === "loading"}
       >
-        {status === "loading" ? "Redirecting..." : "Pay & Renew"}
+        {status === "loading"
+          ? "Redirecting..."
+          : paymentMethod === "cash"
+          ? "Record Cash Renewal"
+          : "Pay & Renew"}
       </button>
 
       {status === "error" && (

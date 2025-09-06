@@ -1,6 +1,20 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+const PRICES = {
+  // (labels only; server enforces price from plan)
+  online: {
+    term: { label: "Student — 1 Term (4 months) — $51.55 online" },
+    year: { label: "Student — 3 Terms (12 months) — $103.10 online" },
+    nonstudent: { label: "Non-Student — 12 months — $82.50 online" },
+  },
+  cash: {
+    term: { label: "Student — 1 Term (4 months) — $50 cash" },
+    year: { label: "Student — 3 Terms (12 months) — $100 cash" },
+    nonstudent: { label: "Non-Student — 12 months — $80 cash" },
+  },
+};
+
 const RegisterForm = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -10,21 +24,32 @@ const RegisterForm = () => {
     emergencyContactPhone: "",
     emergencyContactRelation: "",
     waiverSigned: false,
-    membershipType: "term",
+    paymentMethod: "", // "online" | "cash"
+    membershipType: "", // "term" | "year" | "nonstudent"
     startDate: "",
     expiryDate: "",
-    paymentMethod: "",
     cashReceiver: "",
   });
+  const [status, setStatus] = useState(""); // "", "success", "error"
 
-  const [status, setStatus] = useState("");
+  const API_BASE =
+    process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
+    "http://localhost:5050";
+  const ORIGIN = window.location.origin;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData((prev) => {
+      if (name === "paymentMethod") {
+        return {
+          ...prev,
+          paymentMethod: value,
+          membershipType: "",
+          cashReceiver: "",
+        };
+      }
+      return { ...prev, [name]: type === "checkbox" ? checked : value };
+    });
   };
 
   const calculateExpiry = (membershipType) => {
@@ -32,59 +57,43 @@ const RegisterForm = () => {
     const expiry = new Date(start);
     if (membershipType === "term") expiry.setMonth(start.getMonth() + 4);
     if (membershipType === "year") expiry.setMonth(start.getMonth() + 12);
-    return {
-      startDate: start.toISOString(),
-      expiryDate: expiry.toISOString(),
-    };
-  };
-
-  const getStripePricing = (type) => {
-    return {
-      term: {
-        amount: 5155,
-        label: "4 months (student) - $51.55",
-      },
-      year: {
-        amount: 10310,
-        label: "12 months (student) - $103.10",
-      },
-    }[type];
+    if (membershipType === "nonstudent") expiry.setMonth(start.getMonth() + 12);
+    return { startDate: start.toISOString(), expiryDate: expiry.toISOString() };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { startDate, expiryDate } = calculateExpiry(formData.membershipType);
 
+    if (!formData.waiverSigned)
+      return alert("Please agree to the waiver form.");
+    if (!formData.paymentMethod) return alert("Please choose a payment type.");
+    if (!formData.membershipType) return alert("Please choose a membership.");
     if (formData.paymentMethod === "cash" && !formData.cashReceiver.trim()) {
       setStatus("error");
-      alert(
-        "Please enter the name of the exec who received your cash payment."
-      );
-      return;
+      return alert("Please enter the exec name for cash payments.");
     }
 
+    const { startDate, expiryDate } = calculateExpiry(formData.membershipType);
+    const emailNorm = formData.email.trim().toLowerCase();
+
     if (formData.paymentMethod === "online") {
-      const payload = { ...formData, startDate, expiryDate };
+      // Persist payload for /success page to POST /api/members
+      const payload = { ...formData, email: emailNorm, startDate, expiryDate };
       localStorage.setItem("boxing-form", JSON.stringify(payload));
 
-      const { amount, label } = getStripePricing(formData.membershipType);
-
+      const pricing = PRICES.online[formData.membershipType];
       try {
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/checkout/create-checkout-session`,
+        const { data } = await axios.post(
+          `${API_BASE}/api/checkout/create-checkout-session`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount, label }),
+            plan: formData.membershipType, // << send plan (server enforces price)
+            label: pricing.label,
+            type: "register",
+            successUrl: `${ORIGIN}/success`,
+            cancelUrl: `${ORIGIN}/register`,
           }
         );
-
-        if (!res.ok) {
-          alert("Server error while creating payment session.");
-          return;
-        }
-
-        const data = await res.json();
+        if (!data?.url) return alert("Server error creating payment session.");
         sessionStorage.setItem("submittedToStripe", "true");
         window.location.href = data.url;
       } catch (err) {
@@ -92,27 +101,32 @@ const RegisterForm = () => {
         setStatus("error");
         alert("Failed to redirect to payment page.");
       }
-
       return;
     }
 
-    // Cash payment path
+    // Cash path (server computes price from membershipType + paymentMethod)
     try {
-      const data = new FormData();
-      for (const key in formData) {
-        if (key !== "startDate" && key !== "expiryDate") {
-          data.append(key, formData[key]);
-        }
-      }
-      data.append("startDate", startDate);
-      data.append("expiryDate", expiryDate);
-
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/members`, data);
+      const fd = new FormData();
+      Object.entries({
+        ...formData,
+        email: emailNorm,
+        startDate,
+        expiryDate,
+      }).forEach(([k, v]) => fd.append(k, v));
+      await axios.post(`${API_BASE}/api/members`, fd);
       setStatus("success");
-    } catch {
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1800);
+    } catch (err) {
+      console.error("Cash submission failed:", err);
       setStatus("error");
+      alert("Submission failed. Please try again.");
     }
   };
+
+  const paymentChosen = !!formData.paymentMethod;
+  const options = paymentChosen ? PRICES[formData.paymentMethod] : null;
 
   return (
     <form
@@ -152,6 +166,7 @@ const RegisterForm = () => {
         />
         <input
           name="email"
+          type="email"
           placeholder="Email"
           onChange={handleChange}
           className="border p-2 w-full"
@@ -159,9 +174,9 @@ const RegisterForm = () => {
         />
       </div>
 
-      {/* Emergency Contact Info */}
+      {/* Emergency Contact */}
       <div>
-        <h3 className="text-lg font-semibold mb-2">Emergency Contact Info</h3>
+        <h3 className="text-lg font-semibold mb-2">Emergency Contact</h3>
         <input
           name="emergencyContactName"
           placeholder="Contact Name"
@@ -194,6 +209,7 @@ const RegisterForm = () => {
             name="waiverSigned"
             onChange={handleChange}
             className="mr-2"
+            required
           />
           I have read and agreed to the{" "}
           <a
@@ -207,34 +223,44 @@ const RegisterForm = () => {
         </label>
       </div>
 
-      {/* Membership + Payment */}
+      {/* Payment-first UX */}
       <div>
         <h3 className="text-lg font-semibold mb-2">Membership & Payment</h3>
 
-        <label className="block mb-2 font-medium">Membership Type</label>
-        <select
-          name="membershipType"
-          onChange={handleChange}
-          className="border p-2 w-full mb-4"
-        >
-          <option value="term">
-            4 months (student): $50 cash / $51.55 online
-          </option>
-          <option value="year">
-            12 months (student): $100 cash / $103.10 online
-          </option>
-        </select>
-
-        <label className="block mb-2 font-medium">Payment Method</label>
+        <label className="block mb-2 font-medium">Payment Type</label>
         <select
           name="paymentMethod"
+          value={formData.paymentMethod}
           onChange={handleChange}
           className="border p-2 w-full mb-4"
           required
         >
-          <option value="">Select a payment method</option>
-          <option value="online">Online Payment (Stripe)</option>
+          <option value="">Choose payment type…</option>
+          <option value="online">Online (Stripe)</option>
           <option value="cash">Cash (paid in-person)</option>
+        </select>
+
+        <label className="block mb-2 font-medium">Membership</label>
+        <select
+          name="membershipType"
+          value={formData.membershipType}
+          onChange={handleChange}
+          className="border p-2 w-full mb-4"
+          disabled={!paymentChosen}
+          required
+        >
+          {/* Always show a placeholder that doesn’t count as a selection */}
+          <option value="">
+            {paymentChosen ? "Choose membership…" : "Select payment type first"}
+          </option>
+
+          {paymentChosen && (
+            <>
+              <option value="term">{options.term.label}</option>
+              <option value="year">{options.year.label}</option>
+              <option value="nonstudent">{options.nonstudent.label}</option>
+            </>
+          )}
         </select>
 
         {formData.paymentMethod === "online" && (
@@ -272,7 +298,7 @@ const RegisterForm = () => {
         </button>
         {status === "success" && (
           <p className="text-green-600 font-semibold mt-2">
-            Successfully submitted!
+            Successfully submitted! Redirecting…
           </p>
         )}
         {status === "error" && (

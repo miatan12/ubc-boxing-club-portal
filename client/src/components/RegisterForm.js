@@ -30,8 +30,8 @@ export default function RegisterForm() {
     emergencyContactPhone: "",
     emergencyContactRelation: "",
     waiverSigned: false,
-    paymentMethod: "", // "online" | "cash"
-    membershipType: "", // "term" | "year" | "nonstudent"
+    paymentMethod: "",
+    membershipType: "",
     startDate: "",
     expiryDate: "",
     cashReceiver: "",
@@ -53,7 +53,6 @@ export default function RegisterForm() {
     const { name, value, type, checked } = e.target;
 
     setFormData((prev) => {
-      // When switching payment method, clear dependent fields
       if (name === "paymentMethod") {
         return {
           ...prev,
@@ -65,7 +64,6 @@ export default function RegisterForm() {
       return { ...prev, [name]: type === "checkbox" ? checked : value };
     });
 
-    // Clear error for that field as user edits
     setErrors((prev) => {
       const next = { ...prev };
       delete next[name];
@@ -78,7 +76,7 @@ export default function RegisterForm() {
     const expiry = new Date(start);
     if (membershipType === "term") expiry.setMonth(start.getMonth() + 4);
     if (membershipType === "year") expiry.setMonth(start.getMonth() + 12);
-    if (membershipType === "nonstudent") expiry.setMonth(start.getMonth() + 4); // ← non-student is 4 months
+    if (membershipType === "nonstudent") expiry.setMonth(start.getMonth() + 4); // non-student = 4 months
     return { startDate: start.toISOString(), expiryDate: expiry.toISOString() };
   };
 
@@ -108,7 +106,6 @@ export default function RegisterForm() {
   };
 
   const canSubmit = useMemo(() => {
-    // Simple gate for the button; final check happens in validate()
     return (
       formData.name &&
       formData.email &&
@@ -127,7 +124,6 @@ export default function RegisterForm() {
     e.preventDefault();
     const eMap = validate();
     if (Object.keys(eMap).length) {
-      // Toast the first error; show others inline
       const first = Object.values(eMap)[0];
       toast.error(String(first));
       return;

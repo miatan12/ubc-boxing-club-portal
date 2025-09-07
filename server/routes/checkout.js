@@ -7,12 +7,15 @@ dotenv.config();
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+// ------------------------------------------------------------------
+// Allowed frontend origins (production, staging, localhost)
+// ------------------------------------------------------------------
 const ALLOWED_ORIGINS = new Set(
   [
     "http://localhost:3000",
     "https://localhost:3000",
-    process.env.FRONTEND_ORIGIN,
-    process.env.FRONTEND_STAGING_ORIGIN,
+    process.env.FRONTEND_ORIGIN, // e.g. https://boxing.ubc.ca
+    process.env.FRONTEND_STAGING_ORIGIN, // e.g. https://staging.boxing.ubc.ca
   ].filter(Boolean)
 );
 
@@ -27,11 +30,15 @@ function sanitizeUrl(url, fallback) {
 }
 
 function ensureSessionIdParam(url) {
+  // Stripe expands {CHECKOUT_SESSION_ID} on redirect
   return url.includes("{CHECKOUT_SESSION_ID}")
     ? url
     : `${url}${url.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 }
 
+// ------------------------------------------------------------------
+// Server-trusted pricing (in cents) and server-side labels
+// ------------------------------------------------------------------
 const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250 };
 
 const LABELS = {
@@ -47,32 +54,39 @@ const LABELS = {
   },
 };
 
+// ------------------------------------------------------------------
+// Create Checkout Session
+// ------------------------------------------------------------------
 router.post("/create-checkout-session", async (req, res) => {
   try {
-    const flow = String(req.body.type || "register").toLowerCase();
-    const planKey = String(req.body.plan || "").toLowerCase(); // normalize
+    const flow = String(req.body.type || "register").toLowerCase(); // "register" | "renew"
+    const planKey = String(req.body.plan || "").toLowerCase(); // "term" | "year" | "nonstudent"
 
-    if (!PLAN_CENTS[planKey])
+    if (!PLAN_CENTS[planKey]) {
       return res.status(400).json({ error: "Missing or invalid plan." });
-    if (!LABELS[flow])
+    }
+    if (!LABELS[flow]) {
       return res.status(400).json({ error: "Invalid flow type." });
+    }
 
+    // Default URLs depend on flow
     const FRONTEND_ORIGIN =
       process.env.FRONTEND_ORIGIN || "http://localhost:3000";
-    const defaultSuccess =
-      flow === "renew"
-        ? `${FRONTEND_ORIGIN}/renew-success`
-        : `${FRONTEND_ORIGIN}/success`;
+
+    const defaultSuccess = `${FRONTEND_ORIGIN}/success`;
+
     const defaultCancel =
       flow === "renew"
         ? `${FRONTEND_ORIGIN}/renew`
         : `${FRONTEND_ORIGIN}/register`;
 
+    // Sanitize incoming URLs; success must carry session_id placeholder
     const success_url = ensureSessionIdParam(
       sanitizeUrl(req.body.successUrl, defaultSuccess)
     );
     const cancel_url = sanitizeUrl(req.body.cancelUrl, defaultCancel);
 
+    // Use server-side label for Stripe product name
     const serverLabel = LABELS[flow][planKey];
 
     const session = await stripe.checkout.sessions.create({
@@ -83,7 +97,7 @@ router.post("/create-checkout-session", async (req, res) => {
           price_data: {
             currency: "cad",
             product_data: { name: `UBC Boxing Club – ${serverLabel}` },
-            unit_amount: PLAN_CENTS[planKey],
+            unit_amount: PLAN_CENTS[planKey], // enforce server-side price
           },
           quantity: 1,
         },
@@ -91,10 +105,10 @@ router.post("/create-checkout-session", async (req, res) => {
       success_url,
       cancel_url,
       metadata: {
-        flow,
-        plan: planKey,
-        label_client: req.body.label || "",
-        label_server: serverLabel,
+        flow, // "register" | "renew"
+        plan: planKey, // "term" | "year" | "nonstudent"
+        label_client: req.body.label || "", // optional: what client displayed
+        label_server: serverLabel, // what we actually used
       },
     });
 

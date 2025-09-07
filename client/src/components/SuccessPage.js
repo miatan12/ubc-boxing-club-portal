@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
-const SuccessPage = () => {
+export default function SuccessPage() {
   const [status, setStatus] = useState("loading"); // loading | success | error
-  const hasRun = useRef(false); // prevent double execution in React 18 StrictMode
+  const [flow, setFlow] = useState(null); // "register" | "renew"
+  const hasRun = useRef(false);
 
-  // ✅ Reset flags if user re-enters page from home
+  // If user re-enters page, reset flags
   useEffect(() => {
     sessionStorage.removeItem("already-submitted");
     sessionStorage.removeItem("renewal-submitted");
@@ -15,59 +16,34 @@ const SuccessPage = () => {
     if (hasRun.current) return;
     hasRun.current = true;
 
-    const submitData = async () => {
+    (async () => {
       try {
-        console.log("🔵 SuccessPage loaded");
-
         const alreadySubmitted = sessionStorage.getItem("already-submitted");
+        const renewalSubmitted = sessionStorage.getItem("renewal-submitted");
         const boxingForm = localStorage.getItem("boxing-form");
         const renewalData = localStorage.getItem("renewalData");
-        const renewalSubmitted = sessionStorage.getItem("renewal-submitted");
 
-        console.log("📦 already-submitted:", alreadySubmitted);
-        console.log("📦 boxing-form:", boxingForm ? "exists" : "not found");
-        console.log("📦 renewalData:", renewalData ? "exists" : "not found");
-        console.log("📦 renewal-submitted:", renewalSubmitted);
-
-        // 🟦 1. New member registration
+        // ---- Registration flow ----
         if (alreadySubmitted !== "true" && boxingForm) {
-          const raw = JSON.parse(boxingForm);
-          const {
-            name,
-            email,
-            studentNumber,
-            emergencyContactName,
-            emergencyContactPhone,
-            emergencyContactRelation,
-            waiverSigned,
-            membershipType,
-            startDate,
-            expiryDate,
-            paymentMethod,
-            cashReceiver = "",
-          } = raw;
+          setFlow("register");
 
+          const raw = JSON.parse(boxingForm);
           const payload = {
-            name,
-            email,
-            studentNumber,
-            emergencyContactName,
-            emergencyContactPhone,
-            emergencyContactRelation,
-            waiverSigned,
-            membershipType,
-            startDate,
-            expiryDate,
-            paymentMethod,
-            cashReceiver,
+            name: raw.name,
+            email: raw.email,
+            studentNumber: raw.studentNumber,
+            emergencyContactName: raw.emergencyContactName,
+            emergencyContactPhone: raw.emergencyContactPhone,
+            emergencyContactRelation: raw.emergencyContactRelation,
+            waiverSigned: raw.waiverSigned,
+            membershipType: raw.membershipType,
+            startDate: raw.startDate,
+            expiryDate: raw.expiryDate,
+            paymentMethod: raw.paymentMethod,
+            cashReceiver: raw.cashReceiver || "",
           };
 
-          console.log("🚀 Submitting new member from localStorage...");
-          console.log("📮 Payload:", payload);
-
-          // 🛑 Set early to prevent duplicate submit on re-render
           sessionStorage.setItem("already-submitted", "true");
-
           await axios.post(
             `${process.env.REACT_APP_API_URL}/api/members`,
             payload,
@@ -76,19 +52,16 @@ const SuccessPage = () => {
 
           localStorage.removeItem("boxing-form");
           sessionStorage.removeItem("submittedToStripe");
-
-          console.log("✅ Member successfully submitted");
           setStatus("success");
+          setTimeout(() => (window.location.href = "/"), 1200);
           return;
         }
 
-        // 🟪 2. Membership renewal
+        // ---- Renewal flow ----
         if (renewalSubmitted !== "true" && renewalData) {
+          setFlow("renew");
+
           const renewal = JSON.parse(renewalData);
-
-          console.log("🚀 Submitting renewal data...");
-          console.log("📮 Payload:", renewal);
-
           sessionStorage.setItem("renewal-submitted", "true");
 
           await axios.post(
@@ -99,61 +72,92 @@ const SuccessPage = () => {
 
           localStorage.removeItem("renewalData");
           sessionStorage.removeItem("renewalReady");
-
-          console.log("✅ Renewal successfully submitted");
           setStatus("success");
+          setTimeout(() => (window.location.href = "/"), 1200);
           return;
         }
 
-        console.warn("⚠️ Nothing to submit. Showing error.");
+        // Nothing to submit
         setStatus("error");
       } catch (err) {
-        console.error("❌ Submission failed after payment:", err);
+        console.error("❌ Finalize after payment failed:", err);
         sessionStorage.removeItem("already-submitted");
         sessionStorage.removeItem("renewal-submitted");
         setStatus("error");
       }
-    };
-
-    submitData();
+    })();
   }, []);
 
+  const heading =
+    flow === "renew"
+      ? "Renewal Successful!"
+      : flow === "register"
+      ? "Registration Successful!"
+      : "Finalizing…";
+
   return (
-    <div className="p-8 max-w-xl mx-auto text-center">
-      {status === "loading" && (
-        <h1 className="text-2xl font-bold text-gray-700">Finalizing...</h1>
-      )}
-      {/* Back to home link */}
-      <div className="text-left mb-4">
-        <a
-          href="/"
-          className="text-sm text-blue-600 underline hover:text-blue-800"
-        >
-          ← Back to Home
-        </a>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-lg text-center">
+        {status === "loading" && (
+          <>
+            <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-gray-300 border-t-green-500 animate-spin" />
+            <h1 className="text-2xl font-bold text-gray-800">Finalizing…</h1>
+            <p className="mt-2 text-gray-600">Please don’t close this tab.</p>
+          </>
+        )}
+
+        {status === "success" && (
+          <>
+            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+              <svg
+                className="h-7 w-7 text-green-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-extrabold text-green-600">
+              {heading}
+            </h1>
+            <p className="mt-3 text-gray-700">
+              Thank you! Your membership has been processed.
+            </p>
+            <p className="mt-1 text-sm text-gray-500">Redirecting to home…</p>
+          </>
+        )}
+
+        {status === "error" && (
+          <>
+            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+              <svg
+                className="h-7 w-7 text-red-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M15 9l-6 6M9 9l6 6" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-extrabold text-red-600">
+              We couldn’t finalize your payment
+            </h1>
+            <p className="mt-3 text-gray-700">
+              Please email{" "}
+              <span className="font-medium">ubcboxing@gmail.com</span> with your
+              payment confirmation.
+            </p>
+          </>
+        )}
       </div>
-      {status === "success" && (
-        <>
-          <h1 className="text-3xl font-bold text-green-600">
-            Payment Successful!
-          </h1>
-          <p className="mt-4 text-gray-700">
-            Thank you! Your membership has been processed.
-          </p>
-        </>
-      )}
-      {status === "error" && (
-        <>
-          <h1 className="text-3xl font-bold text-red-600">
-            Something went wrong
-          </h1>
-          <p className="mt-4 text-gray-700">
-            Please contact ubcboxing@gmail.com with your payment confirmation.
-          </p>
-        </>
-      )}
     </div>
   );
-};
-
-export default SuccessPage;
+}

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-// Server enforces Stripe price; we only need dollars for our own /renew payload
 const ONLINE_DOLLARS = { term: 51.55, year: 103.1, nonstudent: 82.5 };
 const CASH_DOLLARS = { term: 50, year: 100, nonstudent: 80 };
 
@@ -9,35 +8,39 @@ const LABELS = {
   online: {
     term: "Renewal — Student — 1 Term (4 months) — $51.55",
     year: "Renewal — Student — 3 Terms (12 months) — $103.10",
-    nonstudent: "Renewal — Non-Student — 12 months — $82.50",
+    nonstudent: "Renewal — Non-Student — 4 months — $82.50",
   },
   cash: {
     term: "Renewal — Student — 1 Term (4 months) — $50",
     year: "Renewal — Student — 3 Terms (12 months) — $100",
-    nonstudent: "Renewal — Non-Student — 12 months — $80",
+    nonstudent: "Renewal — Non-Student — 4 months — $80",
   },
 };
 
-const RenewForm = () => {
+export default function RenewForm() {
   const [email, setEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(""); // "online" | "cash"
   const [membershipType, setMembershipType] = useState(""); // "term" | "year" | "nonstudent"
-  const [status, setStatus] = useState("idle"); // idle | loading | error
+  const [cashReceiver, setCashReceiver] = useState(""); // 👈 NEW
+  const [status, setStatus] = useState("idle");
 
   const API_BASE =
     process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
     "http://localhost:5050";
   const ORIGIN = window.location.origin;
 
-  const handleStripeRenewal = async () => {
+  const handleRenew = async () => {
     const emailNorm = email.trim().toLowerCase();
     if (!emailNorm) return alert("Please enter your email.");
     if (!paymentMethod) return alert("Please choose a payment type.");
     if (!membershipType) return alert("Please choose a membership option.");
+    if (paymentMethod === "cash" && !cashReceiver.trim()) {
+      return alert("Please enter the name of the exec who received your cash.");
+    }
 
     setStatus("loading");
     try {
-      // Verify
+      // Verify member & status
       const verify = await axios.get(
         `${API_BASE}/api/members/verify?name=${encodeURIComponent(emailNorm)}`
       );
@@ -57,24 +60,24 @@ const RenewForm = () => {
       newExpiry.setMonth(now.getMonth() + months);
 
       if (paymentMethod === "cash") {
-        // Direct server update
+        // Direct server update (record exec who took cash)
         await axios.post(`${API_BASE}/api/members/renew`, {
           email: emailNorm,
           paymentMethod: "cash",
           paymentAmount: CASH_DOLLARS[membershipType],
           newExpiryDate: newExpiry.toISOString(),
+          cashReceiver: cashReceiver.trim(), // 👈 send it
         });
-        setStatus("idle");
         alert("Renewal recorded! Redirecting to home…");
         window.location.href = "/";
         return;
       }
 
-      // Online (Stripe): server enforces price by plan
+      // Online (Stripe): stash details for the success page to finalize
       const renewalData = {
         email: emailNorm,
         paymentMethod: "online",
-        paymentAmount: ONLINE_DOLLARS[membershipType], // dollars for our /renew call after success
+        paymentAmount: ONLINE_DOLLARS[membershipType], // dollars
         newExpiryDate: newExpiry.toISOString(),
       };
       localStorage.setItem("renewalData", JSON.stringify(renewalData));
@@ -83,7 +86,7 @@ const RenewForm = () => {
       const { data } = await axios.post(
         `${API_BASE}/api/checkout/create-checkout-session`,
         {
-          plan: membershipType, // << send plan, not amount
+          plan: membershipType, // server enforces pricing
           label: LABELS.online[membershipType],
           type: "renew",
           successUrl: `${ORIGIN}/renew-success`,
@@ -135,7 +138,9 @@ const RenewForm = () => {
         onChange={(e) => {
           setPaymentMethod(e.target.value);
           setMembershipType("");
+          setCashReceiver("");
         }}
+        required
       >
         <option value="">Choose payment type…</option>
         <option value="online">Online (Stripe)</option>
@@ -144,7 +149,7 @@ const RenewForm = () => {
 
       <label className="block mb-1 font-medium">Renewal Option</label>
       <select
-        className="w-full mb-6 p-2 border rounded"
+        className="w-full mb-4 p-2 border rounded"
         value={membershipType}
         onChange={(e) => setMembershipType(e.target.value)}
         disabled={!paymentMethod}
@@ -153,7 +158,6 @@ const RenewForm = () => {
         <option value="">
           {paymentMethod ? "Choose membership…" : "Select payment type first"}
         </option>
-
         {paymentMethod && (
           <>
             <option value="term">{options.term}</option>
@@ -163,17 +167,31 @@ const RenewForm = () => {
         )}
       </select>
 
+      {paymentMethod === "cash" && (
+        <div className="mt-3">
+          <label className="block mb-1 font-medium">
+            Name of exec who received your cash:
+          </label>
+          <input
+            type="text"
+            placeholder="Exec's full name"
+            className="w-full p-2 border rounded"
+            value={cashReceiver}
+            onChange={(e) => setCashReceiver(e.target.value)}
+            required
+          />
+        </div>
+      )}
+
       {paymentMethod === "online" && (
         <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded">
-          <p>
-            You’ll be redirected to a secure Stripe checkout page after clicking
-            “Pay & Renew”.
-          </p>
+          You’ll be redirected to a secure Stripe checkout page after clicking
+          “Pay & Renew”.
         </div>
       )}
 
       <button
-        onClick={handleStripeRenewal}
+        onClick={handleRenew}
         className="bg-blue-600 text-white w-full py-2 rounded hover:bg-blue-700 mt-4"
         disabled={status === "loading"}
       >
@@ -183,14 +201,6 @@ const RenewForm = () => {
           ? "Record Cash Renewal"
           : "Pay & Renew"}
       </button>
-
-      {status === "error" && (
-        <p className="text-red-600 mt-4 text-sm">
-          Something went wrong. Please try again or contact us.
-        </p>
-      )}
     </div>
   );
-};
-
-export default RenewForm;
+}

@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import RegisterForm from "./components/RegisterForm";
 import SuccessPage from "./components/SuccessPage";
 import RenewForm from "./components/RenewForm";
+import RenewSuccessPage from "./components/RenewSuccessPage";
 import HomePage from "./components/HomePage";
 
 function App() {
@@ -18,10 +19,10 @@ function App() {
         <Route path="/register" element={<RegisterForm />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/renew" element={<RenewForm />} />
-
+        <Route path="/renew-success" element={<RenewSuccessPage />} />{" "}
+        {/* ⬅️ add this  */}
         {/* ✅ Admin Login */}
         <Route path="/login" element={<AdminLogin />} />
-
         {/* 🔒 Protected Routes */}
         <Route
           path="/dashboard"
@@ -39,7 +40,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

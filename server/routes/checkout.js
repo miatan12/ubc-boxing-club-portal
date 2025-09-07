@@ -7,14 +7,12 @@ dotenv.config();
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// -------------------------------------------------------------
-// Allowed frontend origins (production, staging, localhost)
-// -------------------------------------------------------------
 const ALLOWED_ORIGINS = new Set(
   [
     "http://localhost:3000",
-    process.env.FRONTEND_ORIGIN, // e.g. https://boxing.ubc.ca
-    process.env.FRONTEND_STAGING_ORIGIN, // e.g. https://staging.boxing.ubc.ca
+    "https://localhost:3000",
+    process.env.FRONTEND_ORIGIN,
+    process.env.FRONTEND_STAGING_ORIGIN,
   ].filter(Boolean)
 );
 
@@ -28,36 +26,55 @@ function sanitizeUrl(url, fallback) {
   }
 }
 
-// -------------------------------------------------------------
-// Pricing map (server-trusted values in cents)
-// -------------------------------------------------------------
-const PLAN_CENTS = {
-  term: 5155, // Student – 1 Term (4 months)
-  year: 10310, // Student – 3 Terms (12 months)
-  nonstudent: 8250, // Non-Student – 12 months
+function ensureSessionIdParam(url) {
+  return url.includes("{CHECKOUT_SESSION_ID}")
+    ? url
+    : `${url}${url.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
+}
+
+const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250 };
+
+const LABELS = {
+  register: {
+    term: "Student — 1 Term (4 months)",
+    year: "Student — 3 Terms (12 months)",
+    nonstudent: "Non-Student — 4 months",
+  },
+  renew: {
+    term: "Renewal — Student — 1 Term (4 months)",
+    year: "Renewal — Student — 3 Terms (12 months)",
+    nonstudent: "Renewal — Non-Student — 4 months",
+  },
 };
 
-// -------------------------------------------------------------
-// Create Checkout Session
-// -------------------------------------------------------------
 router.post("/create-checkout-session", async (req, res) => {
-  const { plan, label, successUrl, cancelUrl, type } = req.body;
-
-  if (!PLAN_CENTS[plan] || !label) {
-    return res.status(400).json({ error: "Missing or invalid plan/label." });
-  }
-
-  // Default fallback URLs
-  const FRONTEND_ORIGIN =
-    process.env.FRONTEND_ORIGIN || "http://localhost:3000";
-  const defaultSuccess = `${FRONTEND_ORIGIN}/success`;
-  const defaultCancel = `${FRONTEND_ORIGIN}/register`;
-
-  // Sanitize URLs from client
-  const success_url = sanitizeUrl(successUrl, defaultSuccess);
-  const cancel_url = sanitizeUrl(cancelUrl, defaultCancel);
-
   try {
+    const flow = String(req.body.type || "register").toLowerCase();
+    const planKey = String(req.body.plan || "").toLowerCase(); // normalize
+
+    if (!PLAN_CENTS[planKey])
+      return res.status(400).json({ error: "Missing or invalid plan." });
+    if (!LABELS[flow])
+      return res.status(400).json({ error: "Invalid flow type." });
+
+    const FRONTEND_ORIGIN =
+      process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+    const defaultSuccess =
+      flow === "renew"
+        ? `${FRONTEND_ORIGIN}/renew-success`
+        : `${FRONTEND_ORIGIN}/success`;
+    const defaultCancel =
+      flow === "renew"
+        ? `${FRONTEND_ORIGIN}/renew`
+        : `${FRONTEND_ORIGIN}/register`;
+
+    const success_url = ensureSessionIdParam(
+      sanitizeUrl(req.body.successUrl, defaultSuccess)
+    );
+    const cancel_url = sanitizeUrl(req.body.cancelUrl, defaultCancel);
+
+    const serverLabel = LABELS[flow][planKey];
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -65,8 +82,8 @@ router.post("/create-checkout-session", async (req, res) => {
         {
           price_data: {
             currency: "cad",
-            product_data: { name: `UBC Boxing Club – ${label}` },
-            unit_amount: PLAN_CENTS[plan], // enforce server-side pricing
+            product_data: { name: `UBC Boxing Club – ${serverLabel}` },
+            unit_amount: PLAN_CENTS[planKey],
           },
           quantity: 1,
         },
@@ -74,9 +91,10 @@ router.post("/create-checkout-session", async (req, res) => {
       success_url,
       cancel_url,
       metadata: {
-        flow: type || "register", // "renew" | "register"
-        plan, // "term" | "year" | "nonstudent"
-        label,
+        flow,
+        plan: planKey,
+        label_client: req.body.label || "",
+        label_server: serverLabel,
       },
     });
 

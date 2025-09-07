@@ -5,9 +5,32 @@ import multer from "multer";
 const upload = multer();
 const router = express.Router();
 
-// ---- helpers ----------------------------------------------------
+/* ----------------------------- helpers ----------------------------- */
+
 const VALID_TYPES = new Set(["term", "year", "nonstudent"]);
 const VALID_PAY = new Set(["cash", "online"]);
+
+// map any legacy / variant strings -> canonical values
+const TYPE_MAP = {
+  term: "term",
+  semester: "term",
+  sem: "term",
+  "4m": "term",
+  "4-month": "term",
+  "4 months": "term",
+  year: "year",
+  annual: "year",
+  "12m": "year",
+  "12-month": "year",
+  nonstudent: "nonstudent",
+  "non-student": "nonstudent",
+};
+
+function normalizeType(value) {
+  if (!value) return undefined;
+  const key = String(value).trim().toLowerCase();
+  return TYPE_MAP[key] || (VALID_TYPES.has(key) ? key : undefined);
+}
 
 function computePaymentAmount(membershipType, paymentMethod) {
   // dollars
@@ -29,13 +52,18 @@ function deriveStatus(expiryDate) {
 
 function normalizeBody(body) {
   const b = { ...body };
-  if (typeof b.email === "string") b.email = b.email.trim().toLowerCase();
-  if (b.membershipType === "semester") b.membershipType = "term"; // legacy guard
+  if (typeof b.email === "string") {
+    b.email = b.email.trim().toLowerCase();
+  }
+  if (typeof b.membershipType === "string") {
+    const t = normalizeType(b.membershipType);
+    if (t) b.membershipType = t;
+  }
   return b;
 }
-// ----------------------------------------------------------------
 
-// ✅ JSON submission (Stripe Success Page)
+/* ---------------------- JSON submission (Stripe) -------------------- */
+
 router.post("/", async (req, res, next) => {
   if (!req.headers["content-type"]?.includes("application/json")) return next();
 
@@ -55,7 +83,6 @@ router.post("/", async (req, res, next) => {
       cashReceiver,
     } = normalizeBody(req.body);
 
-    // Required fields
     const required = [
       name,
       email,
@@ -68,22 +95,21 @@ router.post("/", async (req, res, next) => {
       expiryDate,
       paymentMethod,
     ];
-    if (required.some((v) => !v)) {
+    if (required.some((v) => !v))
       return res.status(400).json({ error: "Missing required fields." });
-    }
 
-    if (!VALID_TYPES.has(membershipType)) {
+    if (!VALID_TYPES.has(membershipType))
       return res.status(400).json({ error: "Invalid membership type." });
-    }
-    if (!VALID_PAY.has(paymentMethod)) {
-      return res.status(400).json({ error: "Invalid payment method." });
-    }
 
-    if (paymentMethod === "cash" && !cashReceiver) {
-      return res.status(400).json({
-        error: "Please enter the name of the exec who collected cash.",
-      });
-    }
+    if (!VALID_PAY.has(paymentMethod))
+      return res.status(400).json({ error: "Invalid payment method." });
+
+    if (paymentMethod === "cash" && !cashReceiver)
+      return res
+        .status(400)
+        .json({
+          error: "Please enter the name of the exec who collected cash.",
+        });
 
     const paymentAmount = computePaymentAmount(membershipType, paymentMethod);
     const now = new Date();
@@ -107,13 +133,6 @@ router.post("/", async (req, res, next) => {
     });
 
     await newMember.save();
-
-    console.log(`✅ Member created (${paymentMethod}):`, {
-      name: newMember.name,
-      amount: newMember.paymentAmount,
-      status: newMember.status,
-    });
-
     res.status(201).json(newMember);
   } catch (err) {
     console.error("🔥 JSON member creation failed:", err);
@@ -121,7 +140,8 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// 🔁 Multipart form submission (cash payment)
+/* ------------ Multipart submission (cash at the desk) --------------- */
+
 router.post("/", upload.single("screenshot"), async (req, res) => {
   try {
     const {
@@ -151,22 +171,21 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       expiryDate,
       paymentMethod,
     ];
-    if (required.some((v) => !v)) {
+    if (required.some((v) => !v))
       return res.status(400).json({ error: "Missing required fields." });
-    }
 
-    if (!VALID_TYPES.has(membershipType)) {
+    if (!VALID_TYPES.has(membershipType))
       return res.status(400).json({ error: "Invalid membership type." });
-    }
-    if (!VALID_PAY.has(paymentMethod)) {
-      return res.status(400).json({ error: "Invalid payment method." });
-    }
 
-    if (paymentMethod === "cash" && !cashReceiver) {
-      return res.status(400).json({
-        error: "Please enter the name of the exec who collected cash.",
-      });
-    }
+    if (!VALID_PAY.has(paymentMethod))
+      return res.status(400).json({ error: "Invalid payment method." });
+
+    if (paymentMethod === "cash" && !cashReceiver)
+      return res
+        .status(400)
+        .json({
+          error: "Please enter the name of the exec who collected cash.",
+        });
 
     const paymentAmount = computePaymentAmount(membershipType, paymentMethod);
     const now = new Date();
@@ -190,13 +209,6 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
     });
 
     await newMember.save();
-
-    console.log(`✅ Member created (${paymentMethod}):`, {
-      name: newMember.name,
-      amount: newMember.paymentAmount,
-      status: newMember.status,
-    });
-
     res.status(201).json(newMember);
   } catch (err) {
     console.error("🔥 Multipart member creation failed:", err);
@@ -204,7 +216,8 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
   }
 });
 
-// 🔍 Verify if member exists & active/expired
+/* ---------------- verify (exists + active/expired) ------------------ */
+
 router.get("/verify", async (req, res) => {
   const email = (req.query.name || "").toString().trim().toLowerCase();
   try {
@@ -220,30 +233,37 @@ router.get("/verify", async (req, res) => {
   }
 });
 
-// 🔁 Membership Renewal (cash or online)
-router.post("/renew", async (req, res) => {
-  const { email, paymentMethod, paymentAmount, newExpiryDate } = req.body;
+/* --------------------------- renewal ------------------------------- */
 
+router.post("/renew", async (req, res) => {
   try {
-    const member = await Member.findOne({ email: email?.toLowerCase().trim() });
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const paymentMethod = req.body.paymentMethod;
+    const paymentAmount = Number(req.body.paymentAmount);
+    const expiry = new Date(req.body.newExpiryDate);
+
+    const member = await Member.findOne({ email });
     if (!member) return res.status(404).json({ message: "Member not found" });
 
-    if (!VALID_PAY.has(paymentMethod)) {
+    if (!VALID_PAY.has(paymentMethod))
       return res.status(400).json({ message: "Invalid payment method." });
-    }
-    const expiry = new Date(newExpiryDate);
-    if (Number.isNaN(expiry.getTime())) {
+
+    if (Number.isNaN(expiry.getTime()))
       return res.status(400).json({ message: "Invalid expiry date." });
-    }
+
+    // normalize any legacy type on existing documents
+    const normalized = normalizeType(member.membershipType);
+    member.membershipType = normalized || "term";
 
     member.paymentMethod = paymentMethod;
-    member.paymentAmount = Number(paymentAmount);
+    member.paymentAmount = paymentAmount; // dollars
     member.paymentDate = new Date();
     member.expiryDate = expiry;
     member.status = "active";
 
     await member.save();
-
     res.json({ message: "Membership renewed!" });
   } catch (err) {
     console.error("❌ Renew error:", err);
@@ -251,13 +271,13 @@ router.post("/renew", async (req, res) => {
   }
 });
 
-// 📌 Log class attendance for a member
+/* ----------------------- attendance + list + search ----------------- */
+
 router.post("/checkin", async (req, res) => {
   const { emailOrName } = req.body;
   if (!emailOrName || !emailOrName.trim()) {
     return res.status(400).json({ error: "Email or name is required." });
   }
-
   try {
     const term = emailOrName.trim();
     const member = await Member.findOne({
@@ -266,7 +286,6 @@ router.post("/checkin", async (req, res) => {
         { name: new RegExp(term, "i") },
       ],
     });
-
     if (!member) return res.status(404).json({ error: "Member not found." });
 
     member.attendance.push(new Date());
@@ -283,7 +302,6 @@ router.post("/checkin", async (req, res) => {
   }
 });
 
-// 🧾 GET all members
 router.get("/", async (_req, res) => {
   try {
     const members = await Member.find({});
@@ -294,13 +312,11 @@ router.get("/", async (_req, res) => {
   }
 });
 
-// 🔍 Search members by partial name/email
 router.get("/search", async (req, res) => {
   const { query } = req.query;
   if (!query || !query.trim()) {
     return res.status(400).json({ error: "Query is required." });
   }
-
   try {
     const regex = new RegExp(query.trim(), "i");
     const members = await Member.find({

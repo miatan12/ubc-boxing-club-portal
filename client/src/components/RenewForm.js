@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const ONLINE_DOLLARS = { term: 51.55, year: 103.1, nonstudent: 82.5 };
 const CASH_DOLLARS = { term: 50, year: 100, nonstudent: 80 };
@@ -18,7 +19,22 @@ const LABELS = {
   },
 };
 
+function ArrowLeft({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
 export default function RenewForm() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(""); // "online" | "cash"
   const [membershipType, setMembershipType] = useState(""); // "term" | "year" | "nonstudent"
@@ -41,15 +57,15 @@ export default function RenewForm() {
     (!needsExec || cashReceiver.trim().length > 0);
 
   const handleRenew = async () => {
-    if (!fieldsValid) return; // extra guard
+    if (!fieldsValid) return;
 
     setStatus("loading");
     const loadingId = toast.loading("Checking your membership…");
 
     try {
-      // 1) Verify member & status
+      // 1) Verify member & status (use email= for clarity)
       const verify = await axios.get(
-        `${API_BASE}/api/members/verify?name=${encodeURIComponent(emailNorm)}`
+        `${API_BASE}/api/members/verify?email=${encodeURIComponent(emailNorm)}`
       );
       if (!verify.data?.found) {
         toast.dismiss(loadingId);
@@ -76,11 +92,11 @@ export default function RenewForm() {
           paymentMethod: "cash",
           paymentAmount: CASH_DOLLARS[membershipType],
           newExpiryDate: newExpiry.toISOString(),
-          cashReceiver: cashReceiver.trim(), // if your backend stores this
+          cashReceiver: cashReceiver.trim(),
         });
         toast.success("Renewal recorded!", { id: loadingId });
         setStatus("idle");
-        setTimeout(() => (window.location.href = "/"), 1200);
+        setTimeout(() => navigate("/", { replace: true }), 1200);
         return;
       }
 
@@ -124,105 +140,121 @@ export default function RenewForm() {
   const disableBtn = isSubmitting || !fieldsValid;
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <div className="mb-4">
-        <div className="text-left">
-          <a
-            href="/"
-            className="text-sm text-blue-600 underline hover:text-blue-800"
-          >
-            ← Back to Home
-          </a>
-        </div>
-        <h2 className="text-2xl font-bold text-center mt-2">
+    <div className="min-h-screen bg-white dark:bg-[#0a0b0d] text-neutral-900 dark:text-white pb-24">
+      <div className="mx-auto max-w-md px-5 pt-6">
+        <button
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-2 rounded-xl border border-black/10 dark:border-white/10 px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
+        <h2 className="mt-4 text-3xl font-extrabold tracking-tight">
           Renew Membership
         </h2>
-      </div>
 
-      <label className="block mb-1 font-medium">Email</label>
-      <input
-        type="email"
-        required
-        placeholder="Enter your email"
-        className="w-full mb-4 p-2 border rounded"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-
-      <label className="block mb-1 font-medium">Payment Type</label>
-      <select
-        className="w-full mb-4 p-2 border rounded"
-        value={paymentMethod}
-        onChange={(e) => {
-          setPaymentMethod(e.target.value);
-          setMembershipType("");
-          setCashReceiver("");
-        }}
-        required
-      >
-        <option value="">Choose payment type…</option>
-        <option value="online">Online (Stripe)</option>
-        <option value="cash">Cash (paid in-person)</option>
-      </select>
-
-      <label className="block mb-1 font-medium">Renewal Option</label>
-      <select
-        className="w-full mb-4 p-2 border rounded"
-        value={membershipType}
-        onChange={(e) => setMembershipType(e.target.value)}
-        disabled={!paymentMethod}
-        required
-      >
-        <option value="">
-          {paymentMethod ? "Choose membership…" : "Select payment type first"}
-        </option>
-        {paymentMethod && (
-          <>
-            <option value="term">{options?.term}</option>
-            <option value="year">{options?.year}</option>
-            <option value="nonstudent">{options?.nonstudent}</option>
-          </>
-        )}
-      </select>
-
-      {paymentMethod === "cash" && (
-        <div className="mt-3">
-          <label className="block mb-1 font-medium">
-            Name of exec who received your cash:
+        <div className="mt-5 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 shadow-sm">
+          <label className="block mb-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Email
           </label>
           <input
-            type="text"
-            placeholder="Exec's full name"
-            className="w-full p-2 border rounded"
-            value={cashReceiver}
-            onChange={(e) => setCashReceiver(e.target.value)}
+            type="email"
             required
+            placeholder="you@example.com"
+            className="w-full mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
-        </div>
-      )}
 
-      {paymentMethod === "online" && (
-        <div className="text-sm text-gray-700 bg-gray-100 mt-3 p-3 rounded">
-          You’ll be redirected to a secure Stripe checkout page after clicking
-          “Pay & Renew”.
-        </div>
-      )}
+          <label className="block mb-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Payment Type
+          </label>
+          <select
+            className="w-full mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+            value={paymentMethod}
+            onChange={(e) => {
+              setPaymentMethod(e.target.value);
+              setMembershipType("");
+              setCashReceiver("");
+            }}
+            required
+          >
+            <option value="">Choose payment type…</option>
+            <option value="online">Online (Stripe)</option>
+            <option value="cash">Cash (paid in-person)</option>
+          </select>
 
-      <button
-        onClick={handleRenew}
-        className={`bg-blue-600 text-white w-full py-2 rounded hover:bg-blue-700 mt-4 ${
-          disableBtn ? "opacity-50 cursor-not-allowed hover:bg-blue-600" : ""
-        }`}
-        disabled={disableBtn}
-        aria-disabled={disableBtn}
-        title={!fieldsValid ? "Complete all required fields to continue" : ""}
-      >
-        {isSubmitting
-          ? "Redirecting…"
-          : paymentMethod === "cash"
-          ? "Record Cash Renewal"
-          : "Pay & Renew"}
-      </button>
+          <label className="block mb-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Renewal Option
+          </label>
+          <select
+            className="w-full mb-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600 disabled:opacity-60"
+            value={membershipType}
+            onChange={(e) => setMembershipType(e.target.value)}
+            disabled={!paymentMethod}
+            required
+          >
+            <option value="">
+              {paymentMethod
+                ? "Choose membership…"
+                : "Select payment type first"}
+            </option>
+            {paymentMethod && (
+              <>
+                <option value="term">{options?.term}</option>
+                <option value="year">{options?.year}</option>
+                <option value="nonstudent">{options?.nonstudent}</option>
+              </>
+            )}
+          </select>
+
+          {paymentMethod === "cash" && (
+            <div className="mt-3">
+              <label className="block mb-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Name of exec who received your cash
+              </label>
+              <input
+                type="text"
+                placeholder="Exec's full name"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={cashReceiver}
+                onChange={(e) => setCashReceiver(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          {paymentMethod === "online" && (
+            <div className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-800/60 mt-3 p-3 rounded-xl">
+              You’ll be redirected to a secure Stripe checkout page after
+              clicking
+              <span className="font-semibold"> “Pay & Renew”</span>.
+            </div>
+          )}
+
+          <button
+            onClick={handleRenew}
+            className={[
+              "mt-5 w-full rounded-2xl px-4 py-2.5 text-sm font-semibold transition",
+              disableBtn
+                ? "bg-red-400 text-white cursor-not-allowed"
+                : "bg-red-600 text-white hover:bg-red-700",
+            ].join(" ")}
+            disabled={disableBtn}
+            aria-disabled={disableBtn}
+            title={
+              !fieldsValid ? "Complete all required fields to continue" : ""
+            }
+          >
+            {isSubmitting
+              ? "Redirecting…"
+              : paymentMethod === "cash"
+              ? "Record Cash Renewal"
+              : "Pay & Renew"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

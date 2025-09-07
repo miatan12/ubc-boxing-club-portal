@@ -2,13 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+/* --- Global theme background + text --- */
+html {
+  background-color: white;
+  color: #0a0a0a;
+}
+html.dark {
+  background-color: #0a0b0d; /* your app’s dark background */
+  color: white;
+}
+
+/* Inherit background through the entire app */
+body, #root {
+  min-height: 100%;
+  background: inherit;
   margin: 0;
+}
+
+/* Smooth text rendering */
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optional: reduce iOS rubber-band white flash */
+html, body {
+  height: 100%;
+  overscroll-behavior-y: contain;
 }
 
 code {

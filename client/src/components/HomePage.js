@@ -1,77 +1,124 @@
-import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+// src/components/HomePage.js
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
-const HomePage = () => {
-  const navigate = useNavigate();
-  const isAdmin = localStorage.getItem("isAdmin") === "true";
-
-  const handleLogout = () => {
-    localStorage.removeItem("isAdmin");
-    navigate("/");
-  };
+/* Page-local brand logo (with glow + fallback) */
+function BrandLogo({ src = "/branding/logo.jpg", alt = "UBC Boxing Club" }) {
+  const [failed, setFailed] = useState(false);
 
   return (
-    <div className="relative min-h-screen bg-white px-6 py-8">
-      {/* 🔒 Top-right Admin Button */}
-      <div className="absolute top-4 right-4">
-        {isAdmin ? (
-          <button
-            onClick={handleLogout}
-            className="text-sm bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700 transition"
-          >
-            Logout
-          </button>
-        ) : (
-          <Link
-            to="/login"
-            className="text-sm bg-gray-200 text-gray-800 px-4 py-1 rounded hover:bg-gray-300 transition"
-          >
-            Admin Login
-          </Link>
-        )}
+    <Link
+      to="/"
+      aria-label="UBC Boxing Club home"
+      className="group relative inline-block"
+    >
+      {/* soft glow */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-0.5 rounded-full
+                   bg-[conic-gradient(at_50%_50%,#ef4444_0deg,#991b1b_120deg,#ef4444_240deg,#991b1b_360deg)]
+                   opacity-70 blur-[3px] transition group-hover:opacity-100 dark:opacity-90"
+      />
+      {/* ring frame */}
+      <span className="relative block rounded-full p-[3px] bg-white/80 dark:bg-black/80">
+        <span className="block rounded-full bg-black p-0.5 ring-2 ring-red-500">
+          {failed ? (
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-red-600 text-white font-extrabold leading-none tracking-wide">
+              UBC
+            </span>
+          ) : (
+            <img
+              src={src}
+              alt={alt}
+              className="h-12 w-12 rounded-full object-cover"
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+              onError={() => setFailed(true)}
+            />
+          )}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen bg-white dark:bg-[#0a0b0d] text-black dark:text-white pb-24">
+      {/* Top row: page-local logo (not persistent) */}
+      <div className="mx-auto max-w-md px-5 pt-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <BrandLogo />
+          <span className="hidden sm:inline text-sm font-semibold text-neutral-900 dark:text-white">
+            UBC Boxing Club
+          </span>
+        </div>
+        {/* (no toggle here — the global one in AppShell persists) */}
+        <span className="sr-only">Theme toggle is in the top-right</span>
       </div>
 
-      {/* 💡 Centered Content */}
-      <div className="max-w-xl mx-auto text-center mt-12">
-        <h1 className="text-4xl font-bold mb-3">UBC Boxing Club Portal</h1>
-        <p className="text-gray-600 mb-8">
-          Welcome! Please choose an option below.
-        </p>
-
-        <div className="space-y-4">
-          <Link
-            to="/register"
-            className="block bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition"
-          >
-            New Member Registration
-          </Link>
-          <Link
-            to="/renew"
-            className="block bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition"
-          >
-            Renew Membership
-          </Link>
-
-          {isAdmin && (
-            <>
-              <Link
-                to="/verify"
-                className="block bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
-              >
-                Verify Members (Check-In)
-              </Link>
-              <Link
-                to="/dashboard"
-                className="block bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
-              >
-                Admin Dashboard
-              </Link>
-            </>
-          )}
+      {/* Title */}
+      <div className="mx-auto max-w-md px-5 pt-2 text-center">
+        <div className="text-sm text-neutral-600 dark:text-neutral-300">
+          Welcome to
         </div>
+        <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+          The UBC Boxing Club
+        </h1>
+      </div>
+
+      {/* Hero card */}
+      <div className="mx-auto max-w-md px-5 pt-5">
+        <div className="relative overflow-hidden rounded-3xl shadow-lg bg-gradient-to-b from-red-500 to-red-600 dark:from-[#c12] dark:to-[#8b111c]">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/35" />
+          <div className="relative px-6 py-7 sm:px-8 sm:py-9 text-white">
+            <h2 className="text-2xl sm:text-3xl font-extrabold drop-shadow">
+              <span className="block">Train. Compete.</span>
+              <span className="block">Community.</span>
+            </h2>
+
+            <p className="mt-3 text-sm leading-relaxed text-white/90 max-w-sm">
+              Join our boxing community and reach your fitness goals, learn new
+              technique, and more!
+            </p>
+
+            {/* CTAs */}
+            <div className="mt-6 space-y-3">
+              <Link
+                to="/register"
+                className="block w-full rounded-2xl bg-white text-neutral-900 text-center font-semibold py-3 hover:bg-neutral-100 transition"
+              >
+                Register
+              </Link>
+
+              <Link
+                to="/renew"
+                className="block w-full rounded-2xl bg-white/10 text-white text-center font-semibold py-3 ring-1 ring-white/55 hover:bg-white/15 transition"
+              >
+                Renew
+                <div className="mt-1 text-center text-xs text-white/80">
+                  Already with us?
+                </div>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact footer */}
+      <div className="mx-auto max-w-md px-5">
+        <p className="mt-8 text-center text-sm text-neutral-600 dark:text-neutral-300">
+          Reach us{" "}
+          <a
+            className="text-red-600 dark:text-red-400 underline underline-offset-4"
+            href="mailto:amsboxingubc@gmail.com"
+          >
+            amsboxingubc@gmail.com
+          </a>
+          .
+        </p>
       </div>
     </div>
   );
-};
-
-export default HomePage;
+}

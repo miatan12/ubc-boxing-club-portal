@@ -96,21 +96,23 @@ export default function SuccessPage() {
       : "Finalizing…";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-lg text-center">
+    <div className="min-h-screen bg-white dark:bg-[#0a0b0d] text-neutral-900 dark:text-white flex items-center justify-center px-4">
+      <div className="w-full max-w-lg rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-lg p-8 text-center">
         {status === "loading" && (
           <>
-            <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-gray-300 border-t-green-500 animate-spin" />
-            <h1 className="text-2xl font-bold text-gray-800">Finalizing…</h1>
-            <p className="mt-2 text-gray-600">Please don’t close this tab.</p>
+            <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-red-600 animate-spin" />
+            <h1 className="text-2xl font-extrabold">Finalizing…</h1>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              Please don’t close this tab.
+            </p>
           </>
         )}
 
         {status === "success" && (
           <>
-            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <svg
-                className="h-7 w-7 text-green-600"
+                className="h-7 w-7 text-green-600 dark:text-green-400"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -121,19 +123,19 @@ export default function SuccessPage() {
                 <path d="M20 6L9 17l-5-5" />
               </svg>
             </div>
-            <h1 className="text-3xl font-extrabold text-green-600">
-              {heading}
-            </h1>
-            <p className="mt-3 text-gray-700">
+            <h1 className="text-3xl font-extrabold">{heading}</h1>
+            <p className="mt-3 text-neutral-700 dark:text-neutral-200">
               Thank you! Your membership has been processed.
             </p>
-            <p className="mt-1 text-sm text-gray-500">Redirecting to home…</p>
+            <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+              Redirecting to home…
+            </p>
           </>
         )}
 
         {status === "error" && (
           <>
-            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
               <svg
                 className="h-7 w-7 text-red-600"
                 viewBox="0 0 24 24"
@@ -150,10 +152,15 @@ export default function SuccessPage() {
             <h1 className="text-3xl font-extrabold text-red-600">
               We couldn’t finalize your payment
             </h1>
-            <p className="mt-3 text-gray-700">
+            <p className="mt-3 text-neutral-700 dark:text-neutral-200">
               Please email{" "}
-              <span className="font-medium">ubcboxing@gmail.com</span> with your
-              payment confirmation.
+              <a
+                className="underline underline-offset-4 text-red-600 dark:text-red-400"
+                href="mailto:amsboxingubc@gmail.com"
+              >
+                amsboxingubc@gmail.com
+              </a>{" "}
+              with your payment confirmation.
             </p>
           </>
         )}

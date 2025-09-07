@@ -62,6 +62,10 @@ function normalizeBody(body) {
   return b;
 }
 
+function escapeRegex(s = "") {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /* ---------------------- JSON submission (Stripe) -------------------- */
 
 router.post("/", async (req, res, next) => {
@@ -216,20 +220,25 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
   }
 });
 
-/* ---------------- verify (exists + active/expired) ------------------ */
+/* ---------------- verify (email exact; accepts email or name) ------ */
 
 router.get("/verify", async (req, res) => {
-  const email = (req.query.name || "").toString().trim().toLowerCase();
+  const emailParam = (req.query.email || req.query.name || "")
+    .toString()
+    .trim()
+    .toLowerCase();
   try {
-    const member = await Member.findOne({ email });
+    const member = await Member.findOne({
+      email: new RegExp(`^${escapeRegex(emailParam)}$`, "i"),
+    });
     if (!member) return res.json({ found: false });
 
     const active =
       member.expiryDate && new Date(member.expiryDate) > new Date();
-    res.json({ found: true, active });
+    return res.json({ found: true, active });
   } catch (err) {
     console.error("❌ Verify error:", err);
-    res.status(500).json({ found: false, error: "Server error" });
+    return res.status(500).json({ found: false, error: "Server error" });
   }
 });
 
@@ -274,31 +283,48 @@ router.post("/renew", async (req, res) => {
 /* ----------------------- attendance + list + search ----------------- */
 
 router.post("/checkin", async (req, res) => {
-  const { emailOrName } = req.body;
-  if (!emailOrName || !emailOrName.trim()) {
-    return res.status(400).json({ error: "Email or name is required." });
-  }
   try {
-    const term = emailOrName.trim();
-    const member = await Member.findOne({
-      $or: [
-        { email: new RegExp(`^${term}$`, "i") },
-        { name: new RegExp(term, "i") },
-      ],
-    });
+    const { memberId, email, emailOrName, exact } = req.body;
+    let member = null;
+
+    if (memberId) {
+      member = await Member.findById(memberId);
+    } else if (email) {
+      member = await Member.findOne({
+        email: new RegExp(`^${escapeRegex(email.trim().toLowerCase())}$`, "i"),
+      });
+    } else if (emailOrName) {
+      const term = emailOrName.trim();
+      if (exact) {
+        member =
+          (await Member.findOne({
+            email: new RegExp(`^${escapeRegex(term.toLowerCase())}$`, "i"),
+          })) ||
+          (await Member.findOne({
+            name: new RegExp(`^${escapeRegex(term)}$`, "i"),
+          }));
+      } else {
+        const rx = new RegExp(escapeRegex(term), "i");
+        member = await Member.findOne({ $or: [{ email: rx }, { name: rx }] });
+      }
+    }
+
     if (!member) return res.status(404).json({ error: "Member not found." });
 
+    if (!Array.isArray(member.attendance)) member.attendance = [];
     member.attendance.push(new Date());
     await member.save();
 
-    res.json({
+    return res.json({
       message: "Check-in recorded.",
+      _id: member._id,
+      email: member.email,
       name: member.name,
       totalClasses: member.attendance.length,
     });
   } catch (err) {
     console.error("❌ Check-in error:", err);
-    res.status(500).json({ error: "Server error." });
+    return res.status(500).json({ error: "Server error." });
   }
 });
 
@@ -318,21 +344,26 @@ router.get("/search", async (req, res) => {
     return res.status(400).json({ error: "Query is required." });
   }
   try {
-    const regex = new RegExp(query.trim(), "i");
+    const rx = new RegExp(escapeRegex(query.trim()), "i");
+    const now = new Date();
+
     const members = await Member.find({
-      $or: [{ name: regex }, { email: regex }],
-    });
+      $or: [{ name: rx }, { email: rx }],
+    }).select("_id name email paymentAmount expiryDate");
+
     const result = members.map((m) => ({
+      id: m._id.toString(),
       name: m.name,
       email: m.email,
       paymentAmount: m.paymentAmount,
       expiryDate: m.expiryDate,
-      status: new Date(m.expiryDate) >= new Date() ? "active" : "expired",
+      status:
+        m.expiryDate && new Date(m.expiryDate) >= now ? "active" : "expired",
     }));
-    res.json(result);
+    return res.json(result);
   } catch (err) {
     console.error("Search error:", err);
-    res.status(500).json({ error: "Server error." });
+    return res.status(500).json({ error: "Server error." });
   }
 });
 

@@ -1,117 +1,104 @@
 // src/components/HomePage.js
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-
-/* Page-local brand logo (with glow + fallback) */
-function BrandLogo({ src = "/branding/logo.jpg", alt = "UBC Boxing Club" }) {
-  const [failed, setFailed] = useState(false);
-
-  return (
-    <Link
-      to="/"
-      aria-label="UBC Boxing Club home"
-      className="group relative inline-block"
-    >
-      {/* soft glow */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-0.5 rounded-full
-                   bg-[conic-gradient(at_50%_50%,#ef4444_0deg,#991b1b_120deg,#ef4444_240deg,#991b1b_360deg)]
-                   opacity-70 blur-[3px] transition group-hover:opacity-100 dark:opacity-90"
-      />
-      {/* ring frame */}
-      <span className="relative block rounded-full p-[3px] bg-white/80 dark:bg-black/80">
-        <span className="block rounded-full bg-black p-0.5 ring-2 ring-red-500">
-          {failed ? (
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-red-600 text-white font-extrabold leading-none tracking-wide">
-              UBC
-            </span>
-          ) : (
-            <img
-              src={src}
-              alt={alt}
-              className="h-12 w-12 rounded-full object-cover"
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
-              onError={() => setFailed(true)}
-            />
-          )}
-        </span>
-      </span>
-    </Link>
-  );
-}
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0a0b0d] text-black dark:text-white pb-24">
-      {/* Top row: page-local logo (not persistent) */}
-      <div className="mx-auto max-w-md px-5 pt-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <BrandLogo />
-          <span className="hidden sm:inline text-sm font-semibold text-neutral-900 dark:text-white">
+    <main className="relative min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white">
+      {/* subtle background glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        {/* softer in light mode, stronger in dark */}
+        <div className="absolute left-1/2 top-16 -translate-x-1/2 h-[460px] w-[460px] rounded-full bg-red-500/15 blur-3xl dark:bg-red-600/30" />
+        <div className="absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-red-700/10 blur-3xl dark:bg-red-900/30" />
+      </div>
+
+      <div className="mx-auto w-full max-w-3xl px-6 py-8">
+        {/* Brand row (remove the <Link> if you don’t want the corner logo) */}
+        <div className="mb-8 flex items-center gap-4">
+          <Link
+            to="/"
+            aria-label="UBC Boxing Club home"
+            className="rounded-full bg-white/80 p-2 ring-1 ring-black/10 shadow-lg dark:bg-black/40 dark:ring-white/10"
+          >
+            <img
+              src="/branding/logo.jpg"
+              alt="UBC Boxing Club logo"
+              className="h-12 w-12 rounded-full"
+            />
+          </Link>
+          <p className="text-sm tracking-wide text-neutral-600 dark:text-white/60">
+            Welcome to
+          </p>
+        </div>
+
+        {/* Title */}
+        <h1 className="mb-6 text-4xl font-extrabold tracking-tight md:text-5xl">
+          <span className="text-neutral-900 dark:text-white">The </span>
+          <span className="bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent dark:from-red-400 dark:to-red-600">
             UBC Boxing Club
           </span>
-        </div>
-        {/* (no toggle here — the global one in AppShell persists) */}
-        <span className="sr-only">Theme toggle is in the top-right</span>
-      </div>
-
-      {/* Title */}
-      <div className="mx-auto max-w-md px-5 pt-2 text-center">
-        <div className="text-sm text-neutral-600 dark:text-neutral-300">
-          Welcome to
-        </div>
-        <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
-          The UBC Boxing Club
         </h1>
-      </div>
 
-      {/* Hero card */}
-      <div className="mx-auto max-w-md px-5 pt-5">
-        <div className="relative overflow-hidden rounded-3xl shadow-lg bg-gradient-to-b from-red-500 to-red-600 dark:from-[#c12] dark:to-[#8b111c]">
-          <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/35" />
-          <div className="relative px-6 py-7 sm:px-8 sm:py-9 text-white">
-            <h2 className="text-2xl sm:text-3xl font-extrabold drop-shadow">
-              <span className="block">Train. Compete.</span>
-              <span className="block">Community.</span>
-            </h2>
+        {/* Hero card */}
+        <section className="relative rounded-3xl bg-gradient-to-b from-red-500 to-red-600 p-8 shadow-[0_10px_40px_-10px_rgba(239,68,68,0.35)] ring-1 ring-black/10 md:p-10 dark:from-red-600 dark:to-red-800 dark:ring-white/10">
+          <h2 className="text-3xl font-extrabold leading-tight md:text-4xl text-white drop-shadow">
+            Train. Compete.
+            <br />
+            Community.
+          </h2>
 
-            <p className="mt-3 text-sm leading-relaxed text-white/90 max-w-sm">
-              Join our boxing community and reach your fitness goals, learn new
-              technique, and more!
-            </p>
+          <p className="mt-4 max-w-2xl text-white/90">
+            Join our boxing community and reach your fitness goals, learn new
+            techniques, and more!
+          </p>
 
-            {/* CTAs */}
-            <div className="mt-6 space-y-3">
-              <Link
-                to="/register"
-                className="block w-full rounded-2xl bg-white text-neutral-900 text-center font-semibold py-3 hover:bg-neutral-100 transition"
+          {/* CTAs */}
+          <div className="mt-8 space-y-4">
+            <Link
+              to="/register"
+              className="group flex w-full items-center justify-center rounded-2xl bg-white py-4 text-lg font-semibold text-neutral-900 shadow-lg transition-transform hover:scale-[1.01] focus:outline-none focus-visible:ring-4 focus-visible:ring-red-300/50"
+            >
+              Register
+              <svg
+                className="ml-2 h-5 w-5 opacity-70 transition group-hover:translate-x-0.5"
+                viewBox="0 0 24 24"
+                fill="currentColor"
               >
-                Register
-              </Link>
+                <path d="M13 5l7 7-7 7M5 12h14" />
+              </svg>
+            </Link>
 
-              <Link
-                to="/renew"
-                className="block w-full rounded-2xl bg-white/10 text-white text-center font-semibold py-3 ring-1 ring-white/55 hover:bg-white/15 transition"
-              >
-                Renew
-                <div className="mt-1 text-center text-xs text-white/80">
+            {/* Transparent/outlined button that adapts to theme */}
+            <Link
+              to="/renew"
+              className="group block rounded-2xl ring-1 ring-black/10 transition hover:ring-black/20 dark:ring-white/15 dark:hover:ring-white/25"
+            >
+              <span className="flex w-full flex-col items-center justify-center rounded-2xl bg-white/60 px-6 py-4 backdrop-blur-sm dark:bg-black/20">
+                <span className="flex items-center text-lg font-semibold text-neutral-900 dark:text-white">
+                  Renew
+                  <svg
+                    className="ml-2 h-5 w-5 opacity-70"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 6v6l4 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                <span className="mt-1 text-sm text-neutral-700 dark:text-white/70">
                   Already with us?
-                </div>
-              </Link>
-            </div>
+                </span>
+              </span>
+            </Link>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Contact footer */}
-      <div className="mx-auto max-w-md px-5">
-        <p className="mt-8 text-center text-sm text-neutral-600 dark:text-neutral-300">
-          Reach us{" "}
+        <p className="mt-10 text-center text-sm text-neutral-700 dark:text-white/70">
+          Reach us at{" "}
           <a
-            className="text-red-600 dark:text-red-400 underline underline-offset-4"
+            className="underline decoration-red-600 underline-offset-4 hover:text-neutral-900 dark:hover:text-white"
             href="mailto:amsboxingubc@gmail.com"
           >
             amsboxingubc@gmail.com
@@ -119,6 +106,6 @@ export default function HomePage() {
           .
         </p>
       </div>
-    </div>
+    </main>
   );
 }

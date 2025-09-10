@@ -30,18 +30,29 @@ function StatusBadge({ active }) {
   );
 }
 
+/** Derive active purely from expiryDate (fallback to status if no date). */
+function isActiveFromMember(m) {
+  if (m?.expiryDate) {
+    const d = new Date(m.expiryDate);
+    if (!Number.isNaN(d.getTime())) {
+      // Active iff expiry is in the future (or exactly now)
+      return d.getTime() >= Date.now();
+      // If you want expiry to count until the *end of the day* locally, use:
+      // const end = new Date(d); end.setHours(23, 59, 59, 999); return end.getTime() >= Date.now();
+    }
+  }
+  if (typeof m?.status === "string") {
+    return m.status.toLowerCase() === "active";
+  }
+  return false;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [filter, setFilter] = useState("all"); // all | active | expired
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const isActiveByDate = (expiryDate) => new Date(expiryDate) >= new Date();
-  const computeActive = (m) =>
-    typeof m.status === "string"
-      ? m.status.toLowerCase() === "active"
-      : isActiveByDate(m.expiryDate);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -61,13 +72,15 @@ export default function AdminDashboard() {
 
   const filteredMembers = useMemo(() => {
     if (filter === "all") return members;
-    if (filter === "active") return members.filter((m) => computeActive(m));
-    if (filter === "expired") return members.filter((m) => !computeActive(m));
+    if (filter === "active")
+      return members.filter((m) => isActiveFromMember(m));
+    if (filter === "expired")
+      return members.filter((m) => !isActiveFromMember(m));
     return members;
   }, [members, filter]);
 
   const stats = useMemo(() => {
-    const active = members.filter((m) => computeActive(m)).length;
+    const active = members.filter((m) => isActiveFromMember(m)).length;
     const expired = Math.max(0, members.length - active);
     return { total: members.length, active, expired };
   }, [members]);
@@ -160,7 +173,7 @@ export default function AdminDashboard() {
 
         <div className="space-y-4">
           {filteredMembers.map((member) => {
-            const active = computeActive(member);
+            const active = isActiveFromMember(member);
             const expiryFormatted = member.expiryDate
               ? new Date(member.expiryDate).toLocaleDateString(undefined, {
                   year: "numeric",

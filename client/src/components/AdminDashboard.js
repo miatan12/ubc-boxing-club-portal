@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getJSON } from "../lib/api";
+import { getJSON, okOrThrow } from "../lib/api";
 
 function ArrowLeft({ className = "" }) {
   return (
@@ -31,35 +31,27 @@ function StatusBadge({ active }) {
   );
 }
 
-/** Derive active purely from expiryDate (fallback to status if no date). */
 function isActiveFromMember(m) {
   if (m?.expiryDate) {
     const d = new Date(m.expiryDate);
-    if (!Number.isNaN(d.getTime())) {
-      // Active iff expiry is in the future (or exactly now)
-      return d.getTime() >= Date.now();
-      // If you want expiry to count until the *end of the day* locally, use:
-      // const end = new Date(d); end.setHours(23, 59, 59, 999); return end.getTime() >= Date.now();
-    }
+    if (!Number.isNaN(d.getTime())) return d.getTime() >= Date.now();
   }
-  if (typeof m?.status === "string") {
-    return m.status.toLowerCase() === "active";
-  }
+  if (typeof m?.status === "string") return m.status.toLowerCase() === "active";
   return false;
 }
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
-  const [filter, setFilter] = useState("all"); // all | active | expired
+  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchMembers = async () => {
+    (async () => {
       try {
         const res = await getJSON("/api/members");
-        if (!res.ok) throw new Error("Failed to fetch members.");
+        await okOrThrow(res, "Failed to fetch members.");
         const data = await res.json();
         setMembers(Array.isArray(data) ? data : []);
       } catch (err) {
@@ -67,8 +59,7 @@ export default function AdminDashboard() {
       } finally {
         setLoading(false);
       }
-    };
-    fetchMembers();
+    })();
   }, []);
 
   const filteredMembers = useMemo(() => {

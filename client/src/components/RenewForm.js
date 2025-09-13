@@ -1,7 +1,8 @@
+// src/components/RenewForm.jsx
 import React, { useState } from "react";
-import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { getJSON, postJSON, okOrThrow } from "../lib/api";
 
 const ONLINE_DOLLARS = { term: 51.55, year: 103.1, nonstudent: 82.5 };
 const CASH_DOLLARS = { term: 50, year: 100, nonstudent: 80 };
@@ -41,9 +42,6 @@ export default function RenewForm() {
   const [cashReceiver, setCashReceiver] = useState("");
   const [status, setStatus] = useState("idle"); // "idle" | "loading"
 
-  const API_BASE =
-    process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
-    "http://localhost:5050";
   const ORIGIN = window.location.origin;
 
   // ----- simple form validity -----
@@ -63,16 +61,19 @@ export default function RenewForm() {
     const loadingId = toast.loading("Checking your membership…");
 
     try {
-      // 1) Verify member & status (use email= for clarity)
-      const verify = await axios.get(
-        `${API_BASE}/api/members/verify?email=${encodeURIComponent(emailNorm)}`
+      // 1) Verify member & status
+      const resVerify = await getJSON(
+        `/api/members/verify?email=${encodeURIComponent(emailNorm)}`
       );
-      if (!verify.data?.found) {
+      await okOrThrow(resVerify, "Verify failed");
+      const verify = await resVerify.json();
+
+      if (!verify?.found) {
         toast.dismiss(loadingId);
         setStatus("idle");
         return toast.error("Member not found. Please check your email.");
       }
-      if (verify.data?.active) {
+      if (verify?.active) {
         toast.dismiss(loadingId);
         setStatus("idle");
         return toast("Your membership is still active.", { icon: "ℹ️" });
@@ -87,13 +88,16 @@ export default function RenewForm() {
       // 3) Cash path: record immediately
       if (paymentMethod === "cash") {
         toast.loading("Recording your renewal…", { id: loadingId });
-        await axios.post(`${API_BASE}/api/members/renew`, {
+        const resRenew = await postJSON("/api/members/renew", {
           email: emailNorm,
           paymentMethod: "cash",
           paymentAmount: CASH_DOLLARS[membershipType],
           newExpiryDate: newExpiry.toISOString(),
           cashReceiver: cashReceiver.trim(),
         });
+        await okOrThrow(resRenew, "Failed to record renewal");
+        await resRenew.json(); // optional, ensure parse
+
         toast.success("Renewal recorded!", { id: loadingId });
         setStatus("idle");
         setTimeout(() => navigate("/", { replace: true }), 1200);
@@ -106,14 +110,14 @@ export default function RenewForm() {
       const renewalData = {
         email: emailNorm,
         paymentMethod: "online",
-        paymentAmount: ONLINE_DOLLARS[membershipType], // dollars
+        paymentAmount: ONLINE_DOLLARS[membershipType], // dollars (for your /success usage)
         newExpiryDate: newExpiry.toISOString(),
       };
       localStorage.setItem("renewalData", JSON.stringify(renewalData));
       sessionStorage.setItem("renewalReady", "true");
 
-      const { data } = await axios.post(
-        `${API_BASE}/api/checkout/create-checkout-session`,
+      const resStripe = await postJSON(
+        "/api/checkout/create-checkout-session",
         {
           plan: membershipType, // server enforces pricing
           label: LABELS.online[membershipType],
@@ -122,6 +126,9 @@ export default function RenewForm() {
           cancelUrl: `${ORIGIN}/renew`,
         }
       );
+      await okOrThrow(resStripe, "Payment session not created");
+      const data = await resStripe.json();
+
       if (!data?.url) throw new Error("Payment session not created.");
       toast.dismiss(loadingId);
       window.location.href = data.url;
@@ -129,9 +136,7 @@ export default function RenewForm() {
       console.error("❌ Renewal error:", err);
       toast.dismiss();
       setStatus("idle");
-      toast.error(
-        err?.response?.data?.error || err.message || "Something went wrong."
-      );
+      toast.error(err?.message || "Something went wrong. Please try again.");
     }
   };
 

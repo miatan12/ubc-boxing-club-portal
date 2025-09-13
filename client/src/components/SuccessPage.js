@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import axios from "axios";
+import { postJSON, okOrThrow } from "../lib/api";
 
 export default function SuccessPage() {
   const [status, setStatus] = useState("loading"); // loading | success | error
@@ -44,11 +44,10 @@ export default function SuccessPage() {
           };
 
           sessionStorage.setItem("already-submitted", "true");
-          await axios.post(
-            `${process.env.REACT_APP_API_URL}/api/members`,
-            payload,
-            { headers: { "Content-Type": "application/json" } }
-          );
+
+          const res = await postJSON("/api/members", payload);
+          await okOrThrow(res, "Failed to create membership");
+          await res.json(); // consume body
 
           localStorage.removeItem("boxing-form");
           sessionStorage.removeItem("submittedToStripe");
@@ -64,11 +63,9 @@ export default function SuccessPage() {
           const renewal = JSON.parse(renewalData);
           sessionStorage.setItem("renewal-submitted", "true");
 
-          await axios.post(
-            `${process.env.REACT_APP_API_URL}/api/members/renew`,
-            renewal,
-            { headers: { "Content-Type": "application/json" } }
-          );
+          const res = await postJSON("/api/members/renew", renewal);
+          await okOrThrow(res, "Failed to record renewal");
+          await res.json();
 
           localStorage.removeItem("renewalData");
           sessionStorage.removeItem("renewalReady");

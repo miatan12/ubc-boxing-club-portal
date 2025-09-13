@@ -1,7 +1,6 @@
 // src/components/AdminLogin.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-// ✅ use your helper consistently
 import { postJSON, okOrThrow } from "../lib/api";
 
 function ArrowLeft({ className = "" }) {
@@ -40,7 +39,6 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // If already logged in this session, bounce to /admin
   useEffect(() => {
     if (sessionStorage.getItem("isAdmin") === "true") {
       navigate("/admin", { replace: true });
@@ -55,19 +53,18 @@ export default function AdminLogin() {
     setError("");
     setLoading(true);
     try {
-      // ✅ await and check .ok, then parse JSON
       const res = await postJSON("/api/admin/login", { password });
-      await okOrThrow(res, "Login failed");
+      await okOrThrow(res, "Incorrect password.");
       const data = await res.json();
 
-      if (data.success) {
+      if (data?.success) {
         sessionStorage.setItem("isAdmin", "true");
         localStorage.removeItem("isAdmin");
         navigate("/admin", { replace: true });
       } else {
         setError("Incorrect password.");
       }
-    } catch (e) {
+    } catch {
       setError("Incorrect password.");
     } finally {
       setLoading(false);

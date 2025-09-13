@@ -1,8 +1,8 @@
 // src/components/RegisterForm.jsx
 import React, { useMemo, useState } from "react";
-import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { postJSON, okOrThrow, apiUrl } from "../lib/api";
 
 const PRICES = {
   // Labels only; server enforces pricing from `plan`
@@ -55,9 +55,6 @@ export default function RegisterForm() {
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(""); // "", "success", "error", "loading"
 
-  const API_BASE =
-    process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
-    "http://localhost:5050";
   const ORIGIN = window.location.origin;
 
   const paymentChosen = !!formData.paymentMethod;
@@ -94,7 +91,6 @@ export default function RegisterForm() {
     if (membershipType === "year") expiry.setMonth(start.getMonth() + 12);
     if (membershipType === "nonstudent") expiry.setMonth(start.getMonth() + 4);
     return { startDate: start.toISOString(), expiryDate: expiry.toISOString() };
-    // non-student = 4 months
   };
 
   const validate = () => {
@@ -150,32 +146,39 @@ export default function RegisterForm() {
     const emailNorm = formData.email.trim().toLowerCase();
 
     if (formData.paymentMethod === "online") {
-      // Save payload for /success page to POST /api/members
-      const payload = { ...formData, email: emailNorm, startDate, expiryDate };
-      localStorage.setItem("boxing-form", JSON.stringify(payload));
+      // Save payload for /success page to POST /api/members after Stripe
+      const payloadToSave = {
+        ...formData,
+        email: emailNorm,
+        startDate,
+        expiryDate,
+      };
+      localStorage.setItem("boxing-form", JSON.stringify(payloadToSave));
 
       const pricing = PRICES.online[formData.membershipType];
       try {
         setStatus("loading");
         const t = toast.loading("Redirecting to secure checkout…");
-        const { data } = await axios.post(
-          `${API_BASE}/api/checkout/create-checkout-session`,
-          {
-            plan: formData.membershipType, // server enforces price
-            label: pricing.label,
-            type: "register",
-            successUrl: `${ORIGIN}/success`,
-            cancelUrl: `${ORIGIN}/register`,
-          }
-        );
+
+        const res = await postJSON("/api/checkout/create-checkout-session", {
+          plan: formData.membershipType, // server enforces price
+          label: pricing.label,
+          type: "register", // flow
+          successUrl: `${ORIGIN}/success`,
+          cancelUrl: `${ORIGIN}/register`,
+        });
+        await okOrThrow(res, "Could not create payment session");
+
+        const data = await res.json();
         toast.dismiss(t);
+
         if (!data?.url) {
           toast.error("Could not create payment session. Try again.");
           setStatus("error");
           return;
         }
         sessionStorage.setItem("submittedToStripe", "true");
-        window.location.href = data.url;
+        window.location.href = data.url; // Stripe Checkout
       } catch (err) {
         console.error("Stripe redirect error:", err);
         setStatus("error");
@@ -184,7 +187,7 @@ export default function RegisterForm() {
       return;
     }
 
-    // Cash flow — send directly to API
+    // Cash flow — send multipart/form-data to /api/members (multer route)
     try {
       setStatus("loading");
       const fd = new FormData();
@@ -195,7 +198,13 @@ export default function RegisterForm() {
         expiryDate,
       }).forEach(([k, v]) => fd.append(k, v));
 
-      postJSON("/api/members", payload);
+      const res = await fetch(apiUrl("/api/members"), {
+        method: "POST",
+        body: fd,
+      });
+      await okOrThrow(res, "Submission failed");
+      await res.json(); // not used, but ensures parse works
+
       toast.success("Registered! Redirecting to home…");
       setStatus("success");
       setTimeout(() => navigate("/", { replace: true }), 1400);

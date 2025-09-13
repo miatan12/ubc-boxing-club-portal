@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getJSON } from "../lib/api";
 
 function ArrowLeft({ className = "" }) {
   return (
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch("http://localhost:5050/api/members");
+        const res = await getJSON("/api/members");
         if (!res.ok) throw new Error("Failed to fetch members.");
         const data = await res.json();
         setMembers(Array.isArray(data) ? data : []);

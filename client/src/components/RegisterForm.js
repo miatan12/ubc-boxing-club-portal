@@ -195,7 +195,7 @@ export default function RegisterForm() {
         expiryDate,
       }).forEach(([k, v]) => fd.append(k, v));
 
-      await axios.post(`${API_BASE}/api/members`, fd);
+      postJSON("/api/members", payload);
       toast.success("Registered! Redirecting to home…");
       setStatus("success");
       setTimeout(() => navigate("/", { replace: true }), 1400);

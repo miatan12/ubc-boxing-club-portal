@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { getJSON } from "../lib/api";
 
 function ArrowLeft({ className = "" }) {
   return (
@@ -58,7 +59,7 @@ export default function AdminLogin() {
     setError("");
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE}/api/admin/login`, { password });
+      const res = postJSON("/api/admin/login", { password });
       if (res.data.success) {
         sessionStorage.setItem("isAdmin", "true");
         localStorage.removeItem("isAdmin");

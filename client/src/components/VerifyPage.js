@@ -1,5 +1,7 @@
+// src/components/VerifyPage.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { getJSON, postJSON, okOrThrow } from "../lib/api";
 
 function ArrowLeft({ className = "" }) {
   return (
@@ -36,14 +38,15 @@ export default function VerifyPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [state, setState] = useState("idle"); // idle | loading | done | error
-  const [checkedIn, setCheckedIn] = useState({}); // { key: timeString }
-  const [checking, setChecking] = useState({}); // { key: true }
+  const [checkedIn, setCheckedIn] = useState({}); // { stableKey: "HH:MM" }
+  const [checking, setChecking] = useState({}); // { stableKey: true }
   const abortRef = useRef(null);
 
-  // Abortable search with debounce
+  // Abortable search with debounce (uses getJSON + signal)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!query.trim()) {
+    const timer = setTimeout(async () => {
+      const q = query.trim();
+      if (!q) {
         if (abortRef.current) abortRef.current.abort();
         setResults([]);
         setState("idle");
@@ -55,30 +58,27 @@ export default function VerifyPage() {
       const controller = new AbortController();
       abortRef.current = controller;
 
-      fetch(
-        `http://localhost:5050/api/members/search?query=${encodeURIComponent(
-          query.trim()
-        )}`,
-        { signal: controller.signal }
-      )
-        .then((res) => {
-          if (!res.ok) throw new Error("Search failed.");
-          return res.json();
-        })
-        .then((data) => {
-          setResults(Array.isArray(data) ? data : []);
-          setState("done");
-        })
-        .catch((err) => {
-          if (err.name === "AbortError") return;
-          setState("error");
-        });
+      try {
+        const res = await getJSON(
+          `/api/members/search?query=${encodeURIComponent(q)}`,
+          {
+            signal: controller.signal,
+          }
+        );
+        await okOrThrow(res, "Search failed");
+        const data = await res.json();
+        setResults(Array.isArray(data) ? data : []);
+        setState("done");
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        setState("error");
+      }
     }, 300);
 
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Prefer an exact, unique identifier for check-in
+  // Prefer a stable unique key for check-in (id > email > name)
   const handleCheckIn = useCallback(async (member, stableKey) => {
     const now = new Date();
 
@@ -86,27 +86,20 @@ export default function VerifyPage() {
       ? { memberId: member.id }
       : member.email
       ? { email: member.email }
-      : { emailOrName: member.name, exact: true }; // last resort
+      : { emailOrName: member.name, exact: true };
 
     try {
       setChecking((prev) => ({ ...prev, [stableKey]: true }));
-
-      const res = await fetch("http://localhost:5050/api/members/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error("Failed to check in.");
+      const res = await postJSON("/api/members/checkin", body);
+      await okOrThrow(res, "Failed to check in");
       const data = await res.json();
 
-      const key = data._id || data.email || stableKey;
+      const displayKey = data._id || data.email || stableKey;
       const timeStr = now.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });
-
-      setCheckedIn((prev) => ({ ...prev, [key]: timeStr }));
+      setCheckedIn((prev) => ({ ...prev, [displayKey]: timeStr }));
     } catch (e) {
       alert("Check-in failed. Please try again.");
     } finally {

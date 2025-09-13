@@ -1,3 +1,4 @@
+// routes/payments.js
 import express from "express";
 import Stripe from "stripe";
 import dotenv from "dotenv";
@@ -5,25 +6,42 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// ------------------------------------------------------------------
-// Allowed frontend origins (production, staging, localhost)
-// ------------------------------------------------------------------
+// ---------- Stripe client ----------
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error("[payments] STRIPE_SECRET_KEY is missing!");
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  // apiVersion: "2024-06-20", // optionally pin a version you use
+});
+
+// ---------- Allowed frontends for redirect URL sanitization ----------
+const ORIGINS = [
+  "http://localhost:3000",
+  "https://localhost:3000",
+  process.env.FRONTEND_ORIGIN, // e.g. https://ubcboxingclub.app
+  process.env.FRONTEND_STAGING_ORIGIN, // e.g. https://staging.ubcboxingclub.app
+  process.env.FRONTEND_WWW_ORIGIN, // e.g. https://www.ubcboxingclub.app
+].filter(Boolean);
+
 const ALLOWED_ORIGINS = new Set(
-  [
-    "http://localhost:3000",
-    "https://localhost:3000",
-    process.env.FRONTEND_ORIGIN, // e.g. https://boxing.ubc.ca
-    process.env.FRONTEND_STAGING_ORIGIN, // e.g. https://staging.boxing.ubc.ca
-  ].filter(Boolean)
+  ORIGINS.map((o) => {
+    try {
+      const u = new URL(o);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      return null;
+    }
+  }).filter(Boolean)
 );
 
+// ---------- Helpers ----------
 function sanitizeUrl(url, fallback) {
   try {
     if (!url) return fallback;
     const u = new URL(url);
-    return ALLOWED_ORIGINS.has(`${u.protocol}//${u.host}`) ? url : fallback;
+    const origin = `${u.protocol}//${u.host}`;
+    return ALLOWED_ORIGINS.has(origin) ? url : fallback;
   } catch {
     return fallback;
   }
@@ -36,11 +54,8 @@ function ensureSessionIdParam(url) {
     : `${url}${url.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 }
 
-// ------------------------------------------------------------------
-// Server-trusted pricing (in cents) and server-side labels
-// ------------------------------------------------------------------
+// ---------- Server-trusted pricing and labels ----------
 const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250 };
-
 const LABELS = {
   register: {
     term: "Student — 1 Term (4 months)",
@@ -54,11 +69,18 @@ const LABELS = {
   },
 };
 
-// ------------------------------------------------------------------
-// Create Checkout Session
-// ------------------------------------------------------------------
+// ---------- Preflight (helpful if global app.options isn't set) ----------
+router.options("/create-checkout-session", (_req, res) => res.sendStatus(204));
+
+// ---------- Create Checkout Session ----------
 router.post("/create-checkout-session", async (req, res) => {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res
+        .status(500)
+        .json({ error: "Server misconfigured: missing STRIPE_SECRET_KEY." });
+    }
+
     const flow = String(req.body.type || "register").toLowerCase(); // "register" | "renew"
     const planKey = String(req.body.plan || "").toLowerCase(); // "term" | "year" | "nonstudent"
 
@@ -69,24 +91,23 @@ router.post("/create-checkout-session", async (req, res) => {
       return res.status(400).json({ error: "Invalid flow type." });
     }
 
-    // Default URLs depend on flow
+    // Defaults based on configured frontend
     const FRONTEND_ORIGIN =
       process.env.FRONTEND_ORIGIN || "http://localhost:3000";
 
     const defaultSuccess = `${FRONTEND_ORIGIN}/success`;
-
     const defaultCancel =
       flow === "renew"
         ? `${FRONTEND_ORIGIN}/renew`
         : `${FRONTEND_ORIGIN}/register`;
 
-    // Sanitize incoming URLs; success must carry session_id placeholder
+    // Sanitize incoming URLs; success must include session_id placeholder
     const success_url = ensureSessionIdParam(
       sanitizeUrl(req.body.successUrl, defaultSuccess)
     );
     const cancel_url = sanitizeUrl(req.body.cancelUrl, defaultCancel);
 
-    // Use server-side label for Stripe product name
+    // Use server-side label and price
     const serverLabel = LABELS[flow][planKey];
 
     const session = await stripe.checkout.sessions.create({
@@ -107,15 +128,17 @@ router.post("/create-checkout-session", async (req, res) => {
       metadata: {
         flow, // "register" | "renew"
         plan: planKey, // "term" | "year" | "nonstudent"
-        label_client: req.body.label || "", // optional: what client displayed
-        label_server: serverLabel, // what we actually used
+        label_client: req.body.label || "", // optional: client-shown label
+        label_server: serverLabel, // authoritative label used
       },
     });
 
-    res.json({ url: session.url });
+    return res.json({ url: session.url });
   } catch (err) {
     console.error("❌ Stripe error:", err);
-    res.status(500).json({ error: "Failed to create checkout session." });
+    return res
+      .status(500)
+      .json({ error: "Failed to create checkout session." });
   }
 });
 

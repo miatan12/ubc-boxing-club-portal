@@ -5,7 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import memberRoutes from "./routes/members.js";
-import checkoutRoutes from "./routes/checkout.js"; // exposes POST /create-checkout-session
+import checkoutRoutes from "./routes/checkout.js";
 import adminRoutes from "./routes/admin.js";
 
 dotenv.config();
@@ -24,8 +24,6 @@ const ORIGINS = [
   "http://localhost:3000",
   "https://localhost:3000",
   process.env.FRONTEND_ORIGIN, // e.g. https://ubcboxingclub.app
-  process.env.FRONTEND_STAGING_ORIGIN, // e.g. https://staging.ubcboxingclub.app
-  process.env.FRONTEND_WWW_ORIGIN, // e.g. https://www.ubcboxingclub.app
 ].filter(Boolean);
 
 const ALLOWED = new Set(

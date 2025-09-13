@@ -1,13 +1,18 @@
 // src/lib/api.js
-const viteBase =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE) || "";
+
+// CRA uses process.env.REACT_APP_*
 const craBase =
-  (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) || "";
-const BASE = viteBase || craBase || ""; // on Vercel, set one of these to your backend https URL
+  (typeof process !== "undefined" &&
+    process.env &&
+    process.env.REACT_APP_API_URL) ||
+  "";
+
+// BASE will be your Render backend in production
+const BASE = craBase; // keep it simple for CRA
 
 export function apiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return BASE ? `${BASE}${p}` : p; // if BASE empty, it stays relative (works with a reverse proxy)
+  return BASE ? `${BASE}${p}` : p; // if BASE empty (local proxy), keep relative
 }
 
 export async function getJSON(path, init) {

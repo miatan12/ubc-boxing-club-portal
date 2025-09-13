@@ -1,8 +1,8 @@
 // src/components/AdminLogin.jsx
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { getJSON } from "../lib/api";
+// ✅ use your helper consistently
+import { postJSON, okOrThrow } from "../lib/api";
 
 function ArrowLeft({ className = "" }) {
   return (
@@ -47,10 +47,6 @@ export default function AdminLogin() {
     }
   }, [navigate]);
 
-  const API_BASE =
-    process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
-    "http://localhost:5050";
-
   const handleLogin = async () => {
     if (!password.trim()) {
       setError("Password is required.");
@@ -59,15 +55,19 @@ export default function AdminLogin() {
     setError("");
     setLoading(true);
     try {
-      const res = postJSON("/api/admin/login", { password });
-      if (res.data.success) {
+      // ✅ await and check .ok, then parse JSON
+      const res = await postJSON("/api/admin/login", { password });
+      await okOrThrow(res, "Login failed");
+      const data = await res.json();
+
+      if (data.success) {
         sessionStorage.setItem("isAdmin", "true");
         localStorage.removeItem("isAdmin");
         navigate("/admin", { replace: true });
       } else {
         setError("Incorrect password.");
       }
-    } catch {
+    } catch (e) {
       setError("Incorrect password.");
     } finally {
       setLoading(false);

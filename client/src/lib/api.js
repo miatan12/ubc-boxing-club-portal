@@ -1,18 +1,17 @@
 // src/lib/api.js
 
-// CRA uses process.env.REACT_APP_*
-const craBase =
+// CRA reads only REACT_APP_* at build time.
+// Do NOT reference import.meta here (it breaks CRA).
+const BASE =
   (typeof process !== "undefined" &&
     process.env &&
-    process.env.REACT_APP_API_URL) ||
+    (process.env.REACT_APP_API_URL || "").replace(/\/+$/, "")) ||
   "";
 
-// BASE will be your Render backend in production
-const BASE = craBase; // keep it simple for CRA
-
+// Small helper to build absolute URLs when BASE is set
 export function apiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return BASE ? `${BASE}${p}` : p; // if BASE empty (local proxy), keep relative
+  return BASE ? `${BASE}${p}` : p;
 }
 
 export async function getJSON(path, init) {
@@ -44,3 +43,6 @@ export async function okOrThrow(res, msg = "Request failed") {
   }
   return res;
 }
+
+// Optional: see what BASE compiled to
+// console.info("[api] BASE =", BASE);

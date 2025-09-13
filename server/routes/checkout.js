@@ -69,9 +69,6 @@ const LABELS = {
   },
 };
 
-// ---------- Preflight (helpful if global app.options isn't set) ----------
-router.options("/create-checkout-session", (_req, res) => res.sendStatus(204));
-
 // ---------- Create Checkout Session ----------
 router.post("/create-checkout-session", async (req, res) => {
   try {

@@ -57,7 +57,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options(/^\/api\/.*$/, cors(corsOptions));
 
 // ---------------------------- health/debug ---------------------------
 app.get("/__health", (_req, res) =>

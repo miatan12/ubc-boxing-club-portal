@@ -45,9 +45,9 @@ export default function HomePage() {
         {/* Hero card */}
         <section className="relative rounded-3xl bg-gradient-to-b from-red-500 to-red-600 p-8 shadow-[0_10px_40px_-10px_rgba(239,68,68,0.35)] ring-1 ring-black/10 md:p-10 dark:from-red-600 dark:to-red-800 dark:ring-white/10">
           <h2 className="text-3xl font-extrabold leading-tight md:text-4xl text-white drop-shadow">
-            Train. Compete.
+            Train. Grow.
             <br />
-            Grow
+            Compete.
           </h2>
 
           <p className="mt-4 max-w-2xl text-white/90">

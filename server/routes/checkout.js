@@ -1,4 +1,4 @@
-// routes/payments.js
+// routes/checkout.js
 import express from "express";
 import Stripe from "stripe";
 import dotenv from "dotenv";

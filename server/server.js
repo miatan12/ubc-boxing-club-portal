@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import memberRoutes from "./routes/members.js";
 import checkoutRoutes from "./routes/checkout.js";
 import adminRoutes from "./routes/admin.js";
+import stripeWebhook from "./routes/stripe-webhook.js"; // this should export an Express.Router()
 
 dotenv.config();
 
@@ -14,10 +15,6 @@ const app = express();
 
 // ---------------------------- trust proxy ----------------------------
 app.set("trust proxy", 1);
-
-// ---------------------------- body parsing ---------------------------
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------- CORS -----------------------------------
 const ORIGINS = [
@@ -39,8 +36,7 @@ const ALLOWED = new Set(
 
 const corsOptions = {
   origin(origin, cb) {
-    // allow server-to-server, curl, same-origin SSR (no Origin header)
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // non-browser / curl
     try {
       const u = new URL(origin);
       const key = `${u.protocol}//${u.host}`;
@@ -53,9 +49,20 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: false,
 };
-
 app.use(cors(corsOptions));
 app.options(/^\/api\/.*$/, cors(corsOptions));
+
+// ---------------------------- STRIPE WEBHOOK FIRST -------------------
+// IMPORTANT: mount raw body ONLY for the webhook route, BEFORE json/urlencoded.
+app.use(
+  "/api/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhook // expects router with router.post("/webhook", ...)
+);
+
+// ---------------------------- body parsing (rest) --------------------
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------- health/debug ---------------------------
 app.get("/__health", (_req, res) =>
@@ -73,14 +80,14 @@ app.get("/__debug/config", (_req, res) =>
 );
 
 // ---------------------------- routes ---------------------------------
-app.use("/api/checkout", checkoutRoutes); // -> POST /api/checkout/create-checkout-session
+app.use("/api/checkout", checkoutRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/admin", adminRoutes);
 
-// 404 for unknown API routes (helps avoid HTML responses)
+// 404 for unknown API routes
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));
 
-// Error boundary (return JSON, not HTML)
+// Error boundary
 app.use((err, _req, res, _next) => {
   console.error("Unhandled error:", err);
   res.status(500).json({ error: "Internal server error" });
@@ -88,16 +95,12 @@ app.use((err, _req, res, _next) => {
 
 // ---------------------------- db + start -----------------------------
 (async () => {
-  if (!process.env.MONGO_URI) {
-    console.error("[server] MONGO_URI is missing!");
-  }
+  if (!process.env.MONGO_URI) console.error("[server] MONGO_URI is missing!");
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("MongoDB connected");
   } catch (err) {
     console.error("MongoDB connection error:", err);
-    // If you prefer to crash on boot failure:
-    // process.exit(1);
   }
 
   const PORT = process.env.PORT || 5050;

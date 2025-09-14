@@ -47,12 +47,12 @@ export default function HomePage() {
           <h2 className="text-3xl font-extrabold leading-tight md:text-4xl text-white drop-shadow">
             Train. Compete.
             <br />
-            Community.
+            Grow
           </h2>
 
           <p className="mt-4 max-w-2xl text-white/90">
-            Join our boxing community and reach your fitness goals, learn new
-            techniques, and more!
+            Push your limits, discover your strengths, and be part of a
+            community where UBC students grow together, in and out of the ring.
           </p>
 
           {/* CTAs */}

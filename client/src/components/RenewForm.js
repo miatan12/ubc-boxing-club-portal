@@ -156,8 +156,11 @@ export default function RenewForm() {
         </button>
 
         <h2 className="mt-4 text-3xl font-extrabold tracking-tight">
-          Renew Membership
+          Membership Renewal
         </h2>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+          Please fill out your details below.
+        </p>
 
         <div className="mt-5 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 shadow-sm">
           <label className="block mb-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">

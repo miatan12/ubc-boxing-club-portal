@@ -227,7 +227,7 @@ export default function RegisterForm() {
         </button>
 
         <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
-          UBC Boxing Club Registration
+          Membership Registration
         </h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
           Please fill out your details below.

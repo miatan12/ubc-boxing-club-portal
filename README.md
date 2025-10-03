@@ -6,9 +6,9 @@ This project replaces the previous Google Forms + QR system with a streamlined d
 
 ---
 
-## 📌 Features
+## Features
 
-### ✅ Must-Haves (Complete or In Progress)
+### Must-Haves (Complete or In Progress)
 
 - **Member Registration**
   - Waiver acceptance, contact info, emergency details
@@ -19,7 +19,7 @@ This project replaces the previous Google Forms + QR system with a streamlined d
 - **Database Integration**
   - MongoDB-backed data model for members and payments
 
-### 💡 Nice-to-Haves (Planned)
+### Nice-to-Haves (Planned)
 
 - Stripe or PayPal integration
 - QR code check-in system
@@ -29,7 +29,7 @@ This project replaces the previous Google Forms + QR system with a streamlined d
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer          | Technology                |
 | -------------- | ------------------------- |

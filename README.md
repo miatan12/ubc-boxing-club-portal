@@ -1,4 +1,4 @@
-# 🥊 UBC Boxing Club Membership Portal
+# UBC Boxing Club Membership Portal 🥊
 
 A full-stack MERN application to manage membership registration, track active/expired plans, and verify attendance for the UBC Boxing Club.
 

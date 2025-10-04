@@ -52,7 +52,7 @@ function ensureSessionIdParam(url) {
 
 // ---------- Server-trusted pricing and labels ----------
 // ADDED: dropin = 1000 cents ($10 CAD)
-const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250, dropin: 1000 };
+const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250, dropin: 500 };
 
 const LABELS = {
   register: {
@@ -67,7 +67,7 @@ const LABELS = {
   },
   // ADDED: flow + label for drop-in
   dropin: {
-    dropin: "Drop-in pass — single class",
+    dropin: "Drop-in single class",
   },
 };
 

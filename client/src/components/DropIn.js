@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { postJSON, okOrThrow } from "../lib/api";
 import { toast } from "react-hot-toast";
 
-const PRICE_LABEL = "$10";
+const PRICE_LABEL = "$5";
 
 export default function DropIn() {
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function DropIn() {
       const res = await postJSON("/api/checkout/create-checkout-session", {
         type: "dropin",
         plan: "dropin",
-        label: "Drop-in pass — $10",
+        label: `Drop-in pass — ${PRICE_LABEL}`,
         successUrl: `${ORIGIN}/success`,
         cancelUrl: `${ORIGIN}/drop-in`,
       });
@@ -57,7 +57,7 @@ export default function DropIn() {
 
         {/* Price banner */}
         <p className="text-sm text-neutral-700 dark:text-neutral-300">
-          Single-class drop-ins are $10 per session.
+          Single-class drop-ins are {PRICE_LABEL} per session.
         </p>
 
         {/* Two options */}
@@ -79,7 +79,7 @@ export default function DropIn() {
                   : "bg-red-600 text-white hover:bg-red-700",
               ].join(" ")}
             >
-              {loading ? "Starting…" : `Checkout Here`}
+              {loading ? "Starting…" : `Checkout ${PRICE_LABEL}`}
             </button>
           </section>
 
@@ -88,8 +88,11 @@ export default function DropIn() {
             <h2 className="text-base font-semibold">Pay Cash</h2>
             <ul className="mt-2 text-sm text-neutral-700 dark:text-neutral-300 list-disc pl-5 space-y-1">
               <li>Arrive 10 minutes early.</li>
-              <li>Tell a coach or exec you’re here for a drop-in session</li>
-              <li>They’ll take cash and mark you in - no account needed!</li>
+              <li>Tell a coach or exec you’re here for a drop-in session.</li>
+              <li>
+                They’ll take {PRICE_LABEL} cash and mark you in — no account
+                needed!
+              </li>
             </ul>
           </section>
         </div>
@@ -98,7 +101,6 @@ export default function DropIn() {
   );
 }
 
-/* Local icon */
 function ArrowLeft({ className = "" }) {
   return (
     <svg

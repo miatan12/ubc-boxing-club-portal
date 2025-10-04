@@ -1,8 +1,10 @@
 # UBC Boxing Club Membership Portal
 
-A **full-stack MERN application** for managing membership registration, payments, and attendance for the **UBC Boxing Club** — one of Canada’s largest university boxing clubs and winner of *AMS Best Recreation Club 2025*.
+A **full-stack MERN application** for managing membership registration, payments, and attendance for the **UBC Boxing Club** — one of Canada’s largest university boxing clubs and winner of *AMS Best Recreation Club 2024-25*.
 
 This portal replaces the old **Google Forms + QR system** with a unified digital platform for both members and admins.
+
+Live at https://ubcboxingclub.app/
 
 ---
 
@@ -44,5 +46,4 @@ npm run dev       # frontend
 npm run server    # backend
 ```
 
-# Built and maintained by Mia Tan, UBC Boxing Co-President
-Live at https://ubcboxingclub.app/
+This project is licensed under the **MIT License** — see the [LICENSE.md](LICENSE.md) file for details.

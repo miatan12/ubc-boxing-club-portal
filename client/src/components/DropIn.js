@@ -66,7 +66,8 @@ export default function DropIn() {
           <section className="rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-5">
             <h2 className="text-base font-semibold">Pay Online</h2>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-              Pay online early and show your confirmation at the door.
+              Pay ahead of class online and show your receipt confirmation at
+              the door.
             </p>
             <button
               onClick={buyOnline}

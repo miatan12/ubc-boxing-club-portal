@@ -227,7 +227,7 @@ export default function VerifyPage() {
                   <div className="mt-4">
                     {wasCheckedIn ? (
                       <div className="inline-flex items-center gap-2 rounded-xl bg-green-600/10 text-green-700 dark:text-green-300 px-3 py-2 text-sm font-medium">
-                        ✅ Checked in at {checkedIn[displayKey]}
+                        Successfully checked in at {checkedIn[displayKey]}
                       </div>
                     ) : (
                       <button

@@ -1,4 +1,3 @@
-// src/components/HomePage.js
 import React from "react";
 import { Link } from "react-router-dom";
 
@@ -10,13 +9,12 @@ export default function HomePage() {
         aria-hidden
         className="pointer-events-none absolute inset-0 overflow-hidden"
       >
-        {/* softer in light mode, stronger in dark */}
         <div className="absolute left-1/2 top-16 -translate-x-1/2 h-[460px] w-[460px] rounded-full bg-red-500/15 blur-3xl dark:bg-red-600/30" />
         <div className="absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-red-700/10 blur-3xl dark:bg-red-900/30" />
       </div>
 
       <div className="mx-auto w-full max-w-3xl px-6 py-8">
-        {/* Brand row (remove the <Link> if you don’t want the corner logo) */}
+        {/* Brand row */}
         <div className="mb-8 flex items-center gap-4">
           <Link
             to="/"
@@ -51,12 +49,13 @@ export default function HomePage() {
           </h2>
 
           <p className="mt-4 max-w-2xl text-white/90">
-            Push your limits, discover your strengths, and be part of a
-            community where UBC students grow together, in and out of the ring.
+            Join a community of UBC students dedicated to growing stronger,
+            together — in and out of the ring.
           </p>
 
           {/* CTAs */}
-          <div className="mt-8 space-y-4">
+          <div className="mt-8 space-y-3">
+            {/* Primary: Register */}
             <Link
               to="/register"
               className="group flex w-full items-center justify-center rounded-2xl bg-white py-4 text-lg font-semibold text-neutral-900 shadow-lg transition-transform hover:scale-[1.01] focus:outline-none focus-visible:ring-4 focus-visible:ring-red-300/50"
@@ -71,32 +70,27 @@ export default function HomePage() {
               </svg>
             </Link>
 
-            {/* Transparent/outlined button that adapts to theme */}
+            {/* Secondary: Drop-in (lighter) */}
             <Link
-              to="/renew"
-              className="group block rounded-2xl ring-1 ring-black/10 transition hover:ring-black/20 dark:ring-white/15 dark:hover:ring-white/25"
+              to="/drop-in"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-medium text-white/90 backdrop-blur transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              aria-label="Drop-in pass"
             >
-              <span className="flex w-full flex-col items-center justify-center rounded-2xl bg-white/60 px-6 py-4 backdrop-blur-sm dark:bg-black/20">
-                <span className="flex items-center text-lg font-semibold text-neutral-900 dark:text-white">
-                  Renew
-                  <svg
-                    className="ml-2 h-5 w-5 opacity-70"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M12 6v6l4 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </span>
-                <span className="mt-1 text-sm text-neutral-700 dark:text-white/70">
-                  Already with us?
-                </span>
-              </span>
+              Drop-in
+              <svg
+                className="h-4 w-4 opacity-70"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 002-2V7z" />
+              </svg>
             </Link>
           </div>
         </section>
 
         <p className="mt-10 text-center text-sm text-neutral-700 dark:text-white/70">
-          Reach us at{" "}
+          Have questions? Reach us at{" "}
           <a
             className="underline decoration-red-600 underline-offset-4 hover:text-neutral-900 dark:hover:text-white"
             href="mailto:amsboxingubc@gmail.com"

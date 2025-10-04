@@ -6,12 +6,14 @@ import HomePage from "./components/HomePage";
 import RegisterForm from "./components/RegisterForm";
 import RenewForm from "./components/RenewForm";
 import SuccessPage from "./components/SuccessPage";
-
 import AdminLogin from "./components/AdminLogin";
-import AdminPage from "./components/AdminPage"; // <-- NEW
+import AdminPage from "./components/AdminPage";
 import AdminDashboard from "./components/AdminDashboard";
 import VerifyPage from "./components/VerifyPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SignUp from "./components/SignUp";
+import DropIn from "./components/DropIn";
+import Info from "./components/Info";
 
 export default function App() {
   return (
@@ -25,6 +27,9 @@ export default function App() {
           <Route path="/renew" element={<RenewForm />} />
           <Route path="/success" element={<SuccessPage />} />
           <Route path="/login" element={<AdminLogin />} />
+          <Route path="/sign-up" element={<SignUp />} />
+          <Route path="/drop-in" element={<DropIn />} />
+          <Route path="/info" element={<Info />} />
 
           {/* Admin (protected) */}
           <Route

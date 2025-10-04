@@ -77,7 +77,7 @@ export default function SuccessPage() {
         // Nothing to submit
         setStatus("error");
       } catch (err) {
-        console.error("❌ Finalize after payment failed:", err);
+        console.error("Finalize after payment failed:", err);
         sessionStorage.removeItem("already-submitted");
         sessionStorage.removeItem("renewal-submitted");
         setStatus("error");

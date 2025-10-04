@@ -11,17 +11,15 @@ const router = express.Router();
 if (!process.env.STRIPE_SECRET_KEY) {
   console.error("[payments] STRIPE_SECRET_KEY is missing!");
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  // apiVersion: "2024-06-20", // optionally pin a version you use
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ---------- Allowed frontends for redirect URL sanitization ----------
 const ORIGINS = [
   "http://localhost:3000",
   "https://localhost:3000",
-  process.env.FRONTEND_ORIGIN, // e.g. https://ubcboxingclub.app
-  process.env.FRONTEND_STAGING_ORIGIN, // e.g. https://staging.ubcboxingclub.app
-  process.env.FRONTEND_WWW_ORIGIN, // e.g. https://www.ubcboxingclub.app
+  process.env.FRONTEND_ORIGIN,
+  process.env.FRONTEND_STAGING_ORIGIN,
+  process.env.FRONTEND_WWW_ORIGIN,
 ].filter(Boolean);
 
 const ALLOWED_ORIGINS = new Set(
@@ -46,16 +44,16 @@ function sanitizeUrl(url, fallback) {
     return fallback;
   }
 }
-
 function ensureSessionIdParam(url) {
-  // Stripe expands {CHECKOUT_SESSION_ID} on redirect
   return url.includes("{CHECKOUT_SESSION_ID}")
     ? url
     : `${url}${url.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 }
 
 // ---------- Server-trusted pricing and labels ----------
-const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250 };
+// ADDED: dropin = 1000 cents ($10 CAD)
+const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250, dropin: 1000 };
+
 const LABELS = {
   register: {
     term: "Student — 1 Term (4 months)",
@@ -66,6 +64,10 @@ const LABELS = {
     term: "Renewal — Student — 1 Term (4 months)",
     year: "Renewal — Student — 3 Terms (12 months)",
     nonstudent: "Renewal — Non-Student — 4 months",
+  },
+  // ADDED: flow + label for drop-in
+  dropin: {
+    dropin: "Drop-in pass — single class",
   },
 };
 
@@ -78,8 +80,9 @@ router.post("/create-checkout-session", async (req, res) => {
         .json({ error: "Server misconfigured: missing STRIPE_SECRET_KEY." });
     }
 
-    const flow = String(req.body.type || "register").toLowerCase(); // "register" | "renew"
-    const planKey = String(req.body.plan || "").toLowerCase(); // "term" | "year" | "nonstudent"
+    // Now accepts "dropin"
+    const flow = String(req.body.type || "register").toLowerCase(); // "register" | "renew" | "dropin"
+    const planKey = String(req.body.plan || "").toLowerCase(); // "term" | "year" | "nonstudent" | "dropin"
 
     if (!PLAN_CENTS[planKey]) {
       return res.status(400).json({ error: "Missing or invalid plan." });
@@ -88,23 +91,23 @@ router.post("/create-checkout-session", async (req, res) => {
       return res.status(400).json({ error: "Invalid flow type." });
     }
 
-    // Defaults based on configured frontend
     const FRONTEND_ORIGIN =
       process.env.FRONTEND_ORIGIN || "http://localhost:3000";
 
     const defaultSuccess = `${FRONTEND_ORIGIN}/success`;
+    // Cancel page depends on flow (so users land back in the right spot)
     const defaultCancel =
       flow === "renew"
         ? `${FRONTEND_ORIGIN}/renew`
+        : flow === "dropin"
+        ? `${FRONTEND_ORIGIN}/drop-in`
         : `${FRONTEND_ORIGIN}/register`;
 
-    // Sanitize incoming URLs; success must include session_id placeholder
     const success_url = ensureSessionIdParam(
       sanitizeUrl(req.body.successUrl, defaultSuccess)
     );
     const cancel_url = sanitizeUrl(req.body.cancelUrl, defaultCancel);
 
-    // Use server-side label and price
     const serverLabel = LABELS[flow][planKey];
 
     const session = await stripe.checkout.sessions.create({
@@ -115,7 +118,7 @@ router.post("/create-checkout-session", async (req, res) => {
           price_data: {
             currency: "cad",
             product_data: { name: `UBC Boxing Club – ${serverLabel}` },
-            unit_amount: PLAN_CENTS[planKey], // enforce server-side price
+            unit_amount: PLAN_CENTS[planKey],
           },
           quantity: 1,
         },
@@ -123,16 +126,16 @@ router.post("/create-checkout-session", async (req, res) => {
       success_url,
       cancel_url,
       metadata: {
-        flow, // "register" | "renew"
-        plan: planKey, // "term" | "year" | "nonstudent"
-        label_client: req.body.label || "", // optional: client-shown label
-        label_server: serverLabel, // authoritative label used
+        flow, // "register" | "renew" | "dropin"
+        plan: planKey, // "term" | "year" | "nonstudent" | "dropin"
+        label_client: req.body.label || "",
+        label_server: serverLabel,
       },
     });
 
     return res.json({ url: session.url });
   } catch (err) {
-    console.error("❌ Stripe error:", err);
+    console.error("Stripe error:", err);
     return res
       .status(500)
       .json({ error: "Failed to create checkout session." });

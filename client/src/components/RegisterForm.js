@@ -1,4 +1,3 @@
-// src/components/RegisterForm.jsx
 import React, { useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -219,7 +218,7 @@ export default function RegisterForm() {
     <div className="min-h-screen bg-white dark:bg-[#0a0b0d] text-neutral-900 dark:text-white pb-24">
       <div className="mx-auto max-w-xl px-5 pt-6">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/sign-up")}
           className="inline-flex items-center gap-2 rounded-xl border border-black/10 dark:border-white/10 px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
         >
           <ArrowLeft className="h-4 w-4" />

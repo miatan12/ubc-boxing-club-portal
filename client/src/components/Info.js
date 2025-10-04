@@ -51,22 +51,6 @@ export default function Info() {
           </div>
         </section>
 
-        {/* Schedule */}
-        <section className="mt-6 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Schedule</h2>
-          <p className="mt-1 text-sm">
-            Typical pattern (subject to change by term):
-          </p>
-          <ul className="mt-2 text-sm list-disc pl-5 space-y-1">
-            <li>Beginner: Mon & Wed, 6:00–7:00 PM</li>
-            <li>Intermediate/Advanced: Tue & Thu, 6:00–7:30 PM</li>
-            <li>Open training: Fri, 5:00–7:00 PM</li>
-          </ul>
-          <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-            Confirm weekly times/rooms on Instagram stories.
-          </p>
-        </section>
-
         {/* Pricing */}
         <section className="mt-6 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Pricing</h2>

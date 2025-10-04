@@ -44,5 +44,5 @@ npm run dev       # frontend
 npm run server    # backend
 ```
 
-Built and maintained by Mia Tan, UBC Boxing Co-President
+# Built and maintained by Mia Tan, UBC Boxing Co-President
 Live at https://ubcboxingclub.app/

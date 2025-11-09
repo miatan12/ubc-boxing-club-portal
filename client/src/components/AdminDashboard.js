@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { getJSON, okOrThrow } from "../lib/api";
 
 /* ===================== Icons & small helpers ===================== */
+function inferPaymentType(v) {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return "—";
+  const r = Math.round(n * 100) / 100; // handle 50.0 / 100.00 safely
+  const is50 = Math.abs(r - 50) < 0.01;
+  const is100 = Math.abs(r - 100) < 0.01;
+  return is50 || is100 ? "Cash" : "Online";
+}
 function ArrowLeft({ className = "" }) {
   return (
     <svg
@@ -584,13 +592,13 @@ export default function AdminDashboard() {
 
                 {/* Info grid (only render tiles that have something meaningful) */}
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                  {/* Payment */}
+                  {/* Payment type */}
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">
-                      Payment
+                      Payment type
                     </div>
                     <div className="font-semibold">
-                      {formatCurrencyMaybe(member.paymentAmount)}
+                      {inferPaymentType(member.paymentAmount)}
                     </div>
                   </div>
 
@@ -603,10 +611,10 @@ export default function AdminDashboard() {
                     <div className="text-xs text-neutral-500">{relative}</div>
                   </div>
 
-                  {/* Classes total */}
+                  {/* Classes attended */}
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">
-                      Classes
+                      Classes attended
                     </div>
                     <div className="font-semibold">{classesCount}</div>
                   </div>

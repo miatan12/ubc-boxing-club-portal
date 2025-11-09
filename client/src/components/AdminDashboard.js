@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getJSON, okOrThrow } from "../lib/api";
 
+/* ===================== Icons & small helpers ===================== */
 function ArrowLeft({ className = "" }) {
   return (
     <svg
@@ -12,6 +13,45 @@ function ArrowLeft({ className = "" }) {
       strokeWidth="2"
     >
       <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+function ChevronDown({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+function ArrowUp({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  );
+}
+function ArrowDown({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M12 5v14M19 12l-7 7-7-7" />
     </svg>
   );
 }
@@ -40,7 +80,6 @@ function isActiveFromMember(m) {
   return false;
 }
 
-// ---- new helpers ----
 function getAttendanceCount(m) {
   if (Array.isArray(m?.attendance)) return m.attendance.length;
   if (typeof m?.attendanceCount === "number") return m.attendanceCount;
@@ -55,20 +94,214 @@ function getName(m) {
   return (m?.name || "").toString();
 }
 function getMembershipType(m) {
-  // normalize to "yearly" / "term" / "" (unknown)
   const t = (m?.membershipType || "").toString().toLowerCase();
   if (t.includes("year")) return "yearly";
   if (t.includes("term")) return "term";
   return "";
 }
 
+/* =============== click-away hook for dropdowns ================== */
+function useClickAway(onAway) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) onAway();
+    }
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [onAway]);
+  return ref;
+}
+
+/* ======================= Sort Dropdown ========================== */
+function SortDropdown({ sortKey, sortDir, setSortKey, setSortDir }) {
+  const [open, setOpen] = useState(false);
+  const ref = useClickAway(() => setOpen(false));
+
+  const labelMap = {
+    attendance: "Attendance",
+    expiry: "Expiry",
+    alphabet: "Alphabet",
+  };
+  const currentLabel = labelMap[sortKey] || "Sort";
+  const DirIcon = sortDir === "asc" ? ArrowUp : ArrowDown;
+
+  const onSelectKeyToggle = (key) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      // sensible defaults when switching keys
+      if (key === "alphabet") setSortDir("asc");
+      if (key === "attendance") setSortDir("desc");
+      if (key === "expiry") setSortDir("asc");
+    }
+    setOpen(false);
+  };
+
+  const Item = ({ k, children }) => (
+    <button
+      onClick={() => onSelectKeyToggle(k)}
+      className={[
+        "w-full text-left px-3 py-2 rounded-lg",
+        sortKey === k
+          ? "bg-red-600 text-white"
+          : "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+      ].join(" ")}
+      role="menuitem"
+    >
+      <div className="flex items-center justify-between">
+        <span>{children}</span>
+        {sortKey === k ? <DirIcon className="h-4 w-4 opacity-80" /> : null}
+      </div>
+    </button>
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
+      >
+        <span className="font-medium">{currentLabel}</span>
+        <DirIcon className="h-4 w-4" />
+        <ChevronDown className="h-4 w-4 opacity-70" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute z-40 mt-2 w-56 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-2 shadow-xl"
+        >
+          <Item k="attendance">Attendance</Item>
+          <Item k="expiry">Expiry date</Item>
+          <Item k="alphabet">Alphabet</Item>
+          <div className="mt-2 px-2 text-xs text-neutral-500 dark:text-neutral-400">
+            Tip: pick the same item again to flip ↑ / ↓
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ======================= Filter Dropdown ======================== */
+function FilterDropdown({
+  filterExpired,
+  filterType,
+  setFilterExpired,
+  setFilterType,
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useClickAway(() => setOpen(false));
+
+  const friendly = (s) => s[0].toUpperCase() + s.slice(1);
+  const summary = `Expired: ${friendly(filterExpired)} · Membership: ${friendly(
+    filterType
+  )}`;
+
+  const RadioRow = ({ title, options, value, onChange }) => (
+    <div className="mb-2">
+      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400 mb-1">
+        {title}
+      </div>
+      <div className="space-y-1">
+        {options.map((opt) => {
+          const checked = value === opt.value;
+          return (
+            <label
+              key={opt.value}
+              className={[
+                "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer",
+                checked
+                  ? "bg-red-600 text-white"
+                  : "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+              ].join(" ")}
+            >
+              <span>{opt.label}</span>
+              <input
+                type="radio"
+                className="accent-red-600"
+                name={title}
+                checked={checked}
+                onChange={() => onChange(opt.value)}
+              />
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
+      >
+        <span className="font-medium">Filter</span>
+        <span className="text-xs text-neutral-600 dark:text-neutral-400 max-w-[14rem] truncate">
+          {summary}
+        </span>
+        <ChevronDown className="h-4 w-4 opacity-70" />
+      </button>
+
+      {open && (
+        <div className="absolute z-40 mt-2 w-80 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 shadow-xl">
+          <RadioRow
+            title="Expired"
+            value={filterExpired}
+            onChange={(v) => setFilterExpired(v)}
+            options={[
+              { value: "all", label: "All" },
+              { value: "yes", label: "Yes" },
+              { value: "no", label: "No" },
+            ]}
+          />
+          <RadioRow
+            title="Membership"
+            value={filterType}
+            onChange={(v) => setFilterType(v)}
+            options={[
+              { value: "all", label: "All" },
+              { value: "yearly", label: "Yearly" },
+              { value: "term", label: "Term" },
+            ]}
+          />
+          <div className="pt-1 text-right">
+            <button
+              onClick={() => {
+                setFilterExpired("all");
+                setFilterType("all");
+                setOpen(false);
+              }}
+              className="text-xs underline text-neutral-600 dark:text-neutral-300"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ======================= Main Component ========================= */
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ---- new UI state ----
+  // Sort & Filter state
   const [sortKey, setSortKey] = useState("attendance"); // "attendance" | "expiry" | "alphabet"
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [filterExpired, setFilterExpired] = useState("all"); // "all" | "yes" | "no"
@@ -178,188 +411,20 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Controls: Sort + Filter button groups */}
-        <div className="mt-6 space-y-3">
-          {/* Sort */}
-          <div className="rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-2">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
-              Sort
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {/* Attendance */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm w-24 text-neutral-700 dark:text-neutral-300">
-                  Attendance
-                </span>
-                <div className="inline-flex rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setSortKey("attendance");
-                      setSortDir("desc");
-                    }}
-                    className={[
-                      "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10",
-                      sortKey === "attendance" && sortDir === "desc"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    ].join(" ")}
-                  >
-                    High → Low
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSortKey("attendance");
-                      setSortDir("asc");
-                    }}
-                    className={[
-                      "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10 border-l-0",
-                      sortKey === "attendance" && sortDir === "asc"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    ].join(" ")}
-                  >
-                    Low → High
-                  </button>
-                </div>
-              </div>
-
-              {/* Expiry */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm w-24 text-neutral-700 dark:text-neutral-300">
-                  Expiry
-                </span>
-                <div className="inline-flex rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setSortKey("expiry");
-                      setSortDir("asc");
-                    }}
-                    className={[
-                      "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10",
-                      sortKey === "expiry" && sortDir === "asc"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    ].join(" ")}
-                  >
-                    Earliest
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSortKey("expiry");
-                      setSortDir("desc");
-                    }}
-                    className={[
-                      "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10 border-l-0",
-                      sortKey === "expiry" && sortDir === "desc"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    ].join(" ")}
-                  >
-                    Latest
-                  </button>
-                </div>
-              </div>
-
-              {/* Alphabet */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm w-24 text-neutral-700 dark:text-neutral-300">
-                  Alphabet
-                </span>
-                <div className="inline-flex rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setSortKey("alphabet");
-                      setSortDir("asc");
-                    }}
-                    className={[
-                      "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10",
-                      sortKey === "alphabet" && sortDir === "asc"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    ].join(" ")}
-                  >
-                    A–Z
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSortKey("alphabet");
-                      setSortDir("desc");
-                    }}
-                    className={[
-                      "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10 border-l-0",
-                      sortKey === "alphabet" && sortDir === "desc"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    ].join(" ")}
-                  >
-                    Z–A
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter */}
-          <div className="rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-2">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
-              Filter
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {/* Expired yes/no/all */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm w-24 text-neutral-700 dark:text-neutral-300">
-                  Expired
-                </span>
-                <div className="inline-flex rounded-lg overflow-hidden">
-                  {["yes", "no", "all"].map((v, i) => (
-                    <button
-                      key={v}
-                      onClick={() => setFilterExpired(v)}
-                      className={[
-                        "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10",
-                        i > 0 ? "border-l-0" : "",
-                        filterExpired === v
-                          ? "bg-red-600 text-white"
-                          : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                      ].join(" ")}
-                    >
-                      {v === "yes" ? "Yes" : v === "no" ? "No" : "All"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Membership yearly/term/all */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm w-24 text-neutral-700 dark:text-neutral-300">
-                  Membership
-                </span>
-                <div className="inline-flex rounded-lg overflow-hidden">
-                  {[
-                    { k: "yearly", label: "Yearly" },
-                    { k: "term", label: "Term" },
-                    { k: "all", label: "All" },
-                  ].map((opt, i) => (
-                    <button
-                      key={opt.k}
-                      onClick={() => setFilterType(opt.k)}
-                      className={[
-                        "px-3 py-1.5 text-sm border border-black/10 dark:border-white/10",
-                        i > 0 ? "border-l-0" : "",
-                        filterType === opt.k
-                          ? "bg-red-600 text-white"
-                          : "bg-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                      ].join(" ")}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Controls: dropdowns */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <SortDropdown
+            sortKey={sortKey}
+            sortDir={sortDir}
+            setSortKey={setSortKey}
+            setSortDir={setSortDir}
+          />
+          <FilterDropdown
+            filterExpired={filterExpired}
+            filterType={filterType}
+            setFilterExpired={setFilterExpired}
+            setFilterType={setFilterType}
+          />
         </div>
       </header>
 

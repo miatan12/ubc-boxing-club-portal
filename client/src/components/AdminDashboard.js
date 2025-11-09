@@ -71,6 +71,7 @@ function StatusBadge({ active }) {
   );
 }
 
+/* ===================== Data helpers ===================== */
 function isActiveFromMember(m) {
   if (m?.expiryDate) {
     const d = new Date(m.expiryDate);
@@ -79,7 +80,6 @@ function isActiveFromMember(m) {
   if (typeof m?.status === "string") return m.status.toLowerCase() === "active";
   return false;
 }
-
 function getAttendanceCount(m) {
   if (Array.isArray(m?.attendance)) return m.attendance.length;
   if (typeof m?.attendanceCount === "number") return m.attendanceCount;
@@ -93,11 +93,62 @@ function parseExpiry(ms) {
 function getName(m) {
   return (m?.name || "").toString();
 }
-function getMembershipType(m) {
-  const t = (m?.membershipType || "").toString().toLowerCase();
-  if (t.includes("year")) return "yearly";
-  if (t.includes("term")) return "term";
-  return "";
+
+/* ==== membership normalize via your map + nice labels ==== */
+const TYPE_MAP = {
+  term: "term",
+  semester: "term",
+  sem: "term",
+  "4m": "term",
+  "4-month": "term",
+  "4 months": "term",
+  year: "year",
+  annual: "year",
+  "12m": "year",
+  "12-month": "year",
+  nonstudent: "nonstudent",
+  "non-student": "nonstudent",
+};
+const TYPE_BADGE = {
+  term: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  year: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  nonstudent:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+};
+const TYPE_LABEL = {
+  term: "Term",
+  year: "Yearly",
+  nonstudent: "Non-Student",
+};
+
+function normalizeType(raw) {
+  if (!raw) return "";
+  const k = raw.toString().toLowerCase().trim();
+  return TYPE_MAP[k] || "";
+}
+
+/* ============== tiny formatters ============== */
+function formatCurrencyMaybe(v) {
+  const n =
+    typeof v === "number" ? v : Number.isFinite(Number(v)) ? Number(v) : null;
+  if (n === null) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+    }).format(n);
+  } catch {
+    return `$${n.toFixed(2)}`;
+  }
+}
+function fmtExpiryRelative(date) {
+  if (!date) return "—";
+  const ms = new Date(date).getTime() - Date.now();
+  const days = Math.round(ms / (1000 * 60 * 60 * 24));
+  if (Number.isNaN(days)) return "—";
+  if (days > 0) return `in ${days} day${days === 1 ? "" : "s"}`;
+  if (days === 0) return "today";
+  return `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
 }
 
 /* =============== click-away hook for dropdowns ================== */
@@ -135,7 +186,6 @@ function SortDropdown({ sortKey, sortDir, setSortKey, setSortDir }) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      // sensible defaults when switching keys
       if (key === "alphabet") setSortDir("asc");
       if (key === "attendance") setSortDir("desc");
       if (key === "expiry") setSortDir("asc");
@@ -336,8 +386,8 @@ export default function AdminDashboard() {
       if (filterExpired === "yes" && !isExpired) return false;
       if (filterExpired === "no" && isExpired) return false;
 
-      const mt = getMembershipType(m);
-      if (filterType === "yearly" && mt !== "yearly") return false;
+      const mt = normalizeType(m.membershipType);
+      if (filterType === "yearly" && mt !== "year") return false;
       if (filterType === "term" && mt !== "term") return false;
 
       return true;
@@ -456,34 +506,48 @@ export default function AdminDashboard() {
                   day: "numeric",
                 })
               : "—";
+            const relative = fmtExpiryRelative(member.expiryDate);
             const classesCount = getAttendanceCount(member);
+
+            const nType = normalizeType(member.membershipType);
+            const typeBadge = TYPE_BADGE[nType];
+            const typeLabel = TYPE_LABEL[nType];
 
             return (
               <div
                 key={member._id || member.email || member.name}
                 className="rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 shadow-sm"
               >
+                {/* Header row */}
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold truncate">
                       {member.name || "—"}
                     </h3>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-300 truncate">
                       {member.email || "—"}
                     </p>
                   </div>
-                  <StatusBadge active={active} />
+                  <div className="flex items-center gap-2">
+                    {nType ? (
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typeBadge}`}
+                      >
+                        {typeLabel}
+                      </span>
+                    ) : null}
+                    <StatusBadge active={active} />
+                  </div>
                 </div>
 
+                {/* Info grid */}
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">
                       Payment
                     </div>
                     <div className="font-semibold">
-                      {member.paymentAmount
-                        ? `$${member.paymentAmount}`
-                        : "N/A"}
+                      {formatCurrencyMaybe(member.paymentAmount)}
                     </div>
                   </div>
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
@@ -491,6 +555,7 @@ export default function AdminDashboard() {
                       Expires
                     </div>
                     <div className="font-semibold">{expiryFormatted}</div>
+                    <div className="text-xs text-neutral-500">{relative}</div>
                   </div>
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">

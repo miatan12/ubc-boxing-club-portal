@@ -120,14 +120,13 @@ const TYPE_LABEL = {
   year: "Yearly",
   nonstudent: "Non-Student",
 };
-
 function normalizeType(raw) {
   if (!raw) return "";
   const k = raw.toString().toLowerCase().trim();
   return TYPE_MAP[k] || "";
 }
 
-/* ============== tiny formatters ============== */
+/* ============== formatters & attendance readers ============== */
 function formatCurrencyMaybe(v) {
   const n =
     typeof v === "number" ? v : Number.isFinite(Number(v)) ? Number(v) : null;
@@ -141,7 +140,17 @@ function formatCurrencyMaybe(v) {
     return `$${n.toFixed(2)}`;
   }
 }
-function fmtExpiryRelative(date) {
+function formatDateMaybe(d) {
+  if (!d) return "—";
+  const t = new Date(d);
+  if (Number.isNaN(t.getTime())) return "—";
+  return t.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+function fmtRelative(date) {
   if (!date) return "—";
   const ms = new Date(date).getTime() - Date.now();
   const days = Math.round(ms / (1000 * 60 * 60 * 24));
@@ -149,6 +158,32 @@ function fmtExpiryRelative(date) {
   if (days > 0) return `in ${days} day${days === 1 ? "" : "s"}`;
   if (days === 0) return "today";
   return `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
+}
+/** Try to read the latest attendance date from various shapes:
+ * - ISO strings: "2025-01-01T12:00:00Z"
+ * - objects with {date} or {at} or {timestamp}
+ */
+function getLastAttendanceAt(m) {
+  if (!Array.isArray(m?.attendance) || m.attendance.length === 0) return null;
+  let latest = null;
+  for (const item of m.attendance) {
+    let d = null;
+    if (typeof item === "string") d = new Date(item);
+    else if (item && typeof item === "object") {
+      d = new Date(
+        item.date || item.at || item.timestamp || item.time || item.checkedInAt
+      );
+    }
+    if (d && !Number.isNaN(d.getTime())) {
+      if (!latest || d.getTime() > latest.getTime()) latest = d;
+    }
+  }
+  return latest;
+}
+function daysUntil(date) {
+  if (!date) return Infinity;
+  const diff = new Date(date).getTime() - Date.now();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
 }
 
 /* =============== click-away hook for dropdowns ================== */
@@ -499,19 +534,21 @@ export default function AdminDashboard() {
         <div className="space-y-4">
           {sortedMembers.map((member) => {
             const active = isActiveFromMember(member);
-            const expiryFormatted = member.expiryDate
-              ? new Date(member.expiryDate).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })
-              : "—";
-            const relative = fmtExpiryRelative(member.expiryDate);
+            const expiryDate = member.expiryDate || null;
+            const expiryFormatted = formatDateMaybe(expiryDate);
+            const relative = fmtRelative(expiryDate);
             const classesCount = getAttendanceCount(member);
 
             const nType = normalizeType(member.membershipType);
             const typeBadge = TYPE_BADGE[nType];
             const typeLabel = TYPE_LABEL[nType];
+
+            const lastAt = getLastAttendanceAt(member);
+            const lastAtStr = formatDateMaybe(lastAt);
+            const lastAtRel = fmtRelative(lastAt);
+
+            const days = daysUntil(expiryDate);
+            const soon = Number.isFinite(days) && days >= 0 && days <= 14;
 
             return (
               <div
@@ -529,6 +566,11 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {soon && (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                        Expires soon
+                      </span>
+                    )}
                     {nType ? (
                       <span
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typeBadge}`}
@@ -540,8 +582,9 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Info grid */}
+                {/* Info grid (only render tiles that have something meaningful) */}
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  {/* Payment */}
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">
                       Payment
@@ -550,6 +593,8 @@ export default function AdminDashboard() {
                       {formatCurrencyMaybe(member.paymentAmount)}
                     </div>
                   </div>
+
+                  {/* Expires */}
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">
                       Expires
@@ -557,20 +602,27 @@ export default function AdminDashboard() {
                     <div className="font-semibold">{expiryFormatted}</div>
                     <div className="text-xs text-neutral-500">{relative}</div>
                   </div>
+
+                  {/* Classes total */}
                   <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
                     <div className="text-neutral-600 dark:text-neutral-300">
                       Classes
                     </div>
                     <div className="font-semibold">{classesCount}</div>
                   </div>
-                  <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
-                    <div className="text-neutral-600 dark:text-neutral-300">
-                      Type
+
+                  {/* Last attended (if we can infer a date) */}
+                  {lastAt && (
+                    <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
+                      <div className="text-neutral-600 dark:text-neutral-300">
+                        Last attended
+                      </div>
+                      <div className="font-semibold">{lastAtStr}</div>
+                      <div className="text-xs text-neutral-500">
+                        {lastAtRel}
+                      </div>
                     </div>
-                    <div className="font-semibold">
-                      {member.membershipType || "—"}
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             );

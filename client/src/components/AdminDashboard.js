@@ -135,19 +135,6 @@ function normalizeType(raw) {
 }
 
 /* ============== formatters & attendance readers ============== */
-function formatCurrencyMaybe(v) {
-  const n =
-    typeof v === "number" ? v : Number.isFinite(Number(v)) ? Number(v) : null;
-  if (n === null) return "—";
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "USD",
-    }).format(n);
-  } catch {
-    return `$${n.toFixed(2)}`;
-  }
-}
 function formatDateMaybe(d) {
   if (!d) return "—";
   const t = new Date(d);

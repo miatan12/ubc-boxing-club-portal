@@ -162,7 +162,9 @@ export default function RegisterForm() {
         const res = await postJSON("/api/checkout/create-checkout-session", {
           plan: formData.membershipType, // server enforces price
           label: pricing.label,
-          type: "register", // flow
+          type: "register",
+          name: formData.name,
+          email: emailNorm,
           successUrl: `${ORIGIN}/success`,
           cancelUrl: `${ORIGIN}/register`,
         });

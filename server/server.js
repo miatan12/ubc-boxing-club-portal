@@ -7,7 +7,10 @@ import dotenv from "dotenv";
 import memberRoutes from "./routes/members.js";
 import checkoutRoutes from "./routes/checkout.js";
 import adminRoutes from "./routes/admin.js";
-import stripeWebhook from "./routes/stripe-webhook.js"; // this should export an Express.Router()
+import stripeWebhook from "./routes/stripe-webhook.js";
+
+import testEmailRouter from "./routes/test-email.js";
+app.use("/api", testEmailRouter);
 
 dotenv.config();
 

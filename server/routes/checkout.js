@@ -30,7 +30,7 @@ const ALLOWED_ORIGINS = new Set(
     } catch {
       return null;
     }
-  }).filter(Boolean)
+  }).filter(Boolean),
 );
 
 // ---------- Helpers ----------
@@ -51,7 +51,7 @@ function ensureSessionIdParam(url) {
 }
 
 // ---------- Server-trusted pricing and labels ----------
-// ADDED: dropin = 1000 cents ($10 CAD)
+// ADDED: dropin = 500 cents ($5 CAD)
 const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250, dropin: 500 };
 
 const LABELS = {
@@ -83,6 +83,8 @@ router.post("/create-checkout-session", async (req, res) => {
     // Now accepts "dropin"
     const flow = String(req.body.type || "register").toLowerCase(); // "register" | "renew" | "dropin"
     const planKey = String(req.body.plan || "").toLowerCase(); // "term" | "year" | "nonstudent" | "dropin"
+    const name = (req.body.name || "").toString();
+    const email = (req.body.email || "").toString().toLowerCase();
 
     if (!PLAN_CENTS[planKey]) {
       return res.status(400).json({ error: "Missing or invalid plan." });
@@ -100,11 +102,11 @@ router.post("/create-checkout-session", async (req, res) => {
       flow === "renew"
         ? `${FRONTEND_ORIGIN}/renew`
         : flow === "dropin"
-        ? `${FRONTEND_ORIGIN}/drop-in`
-        : `${FRONTEND_ORIGIN}/register`;
+          ? `${FRONTEND_ORIGIN}/drop-in`
+          : `${FRONTEND_ORIGIN}/register`;
 
     const success_url = ensureSessionIdParam(
-      sanitizeUrl(req.body.successUrl, defaultSuccess)
+      sanitizeUrl(req.body.successUrl, defaultSuccess),
     );
     const cancel_url = sanitizeUrl(req.body.cancelUrl, defaultCancel);
 
@@ -113,6 +115,7 @@ router.post("/create-checkout-session", async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      customer_email: email || undefined,
       line_items: [
         {
           price_data: {
@@ -130,6 +133,8 @@ router.post("/create-checkout-session", async (req, res) => {
         plan: planKey, // "term" | "year" | "nonstudent" | "dropin"
         label_client: req.body.label || "",
         label_server: serverLabel,
+        name,
+        email,
       },
     });
 

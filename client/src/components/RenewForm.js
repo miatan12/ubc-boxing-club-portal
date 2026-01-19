@@ -121,6 +121,7 @@ export default function RenewForm() {
           plan: membershipType, // server enforces pricing
           label: LABELS.online[membershipType],
           type: "renew",
+          email: emailNorm,
           successUrl: `${ORIGIN}/success`,
           cancelUrl: `${ORIGIN}/renew`,
         }

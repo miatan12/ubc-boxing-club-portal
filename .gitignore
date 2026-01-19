@@ -1,13 +1,12 @@
 # dependencies
-client/node_modules/
-server/node_modules/
+**/node_modules/
 
-# environment variables
-client/.env
-server/.env
+# env
+**/.env
 
-# build
-client/build/
+# builds
+**/build/
+**/dist/
 
 # misc
-.DS_Storeserver/.env
+.DS_Store

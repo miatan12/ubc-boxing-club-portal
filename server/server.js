@@ -10,7 +10,6 @@ import adminRoutes from "./routes/admin.js";
 import stripeWebhook from "./routes/stripe-webhook.js";
 
 import testEmailRouter from "./routes/test-email.js";
-app.use("/api", testEmailRouter);
 
 dotenv.config();
 
@@ -34,7 +33,7 @@ const ALLOWED = new Set(
     } catch {
       return null;
     }
-  }).filter(Boolean)
+  }).filter(Boolean),
 );
 
 const corsOptions = {
@@ -60,7 +59,7 @@ app.options(/^\/api\/.*$/, cors(corsOptions));
 app.use(
   "/api/stripe",
   express.raw({ type: "application/json" }),
-  stripeWebhook // expects router with router.post("/webhook", ...)
+  stripeWebhook, // expects router with router.post("/webhook", ...)
 );
 
 // ---------------------------- body parsing (rest) --------------------
@@ -69,7 +68,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------- health/debug ---------------------------
 app.get("/__health", (_req, res) =>
-  res.json({ ok: true, time: new Date().toISOString() })
+  res.json({ ok: true, time: new Date().toISOString() }),
 );
 app.get("/__debug/config", (_req, res) =>
   res.json({
@@ -79,13 +78,14 @@ app.get("/__debug/config", (_req, res) =>
     frontendOrigin: process.env.FRONTEND_ORIGIN || null,
     stagingOrigin: process.env.FRONTEND_STAGING_ORIGIN || null,
     wwwOrigin: process.env.FRONTEND_WWW_ORIGIN || null,
-  })
+  }),
 );
 
 // ---------------------------- routes ---------------------------------
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api", testEmailRouter);
 
 // 404 for unknown API routes
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));

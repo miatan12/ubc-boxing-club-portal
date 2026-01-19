@@ -1,27 +1,43 @@
-// lib/email.js
+// server/lib/email.js
 import { Resend } from "resend";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function sendEmail({ to, subject, html, text }) {
+// Fallbacks so emails never fail due to missing fields
+const DEFAULT_FROM =
+  process.env.FROM_EMAIL || "UBC Boxing Club <no-reply@ubcboxingclub.app>";
+
+const DEFAULT_REPLY_TO = process.env.REPLY_TO_EMAIL || "info@ubcboxingclub.app";
+
+export async function sendEmail({ to, subject, html, text, from, replyTo }) {
   if (!process.env.RESEND_API_KEY) {
-    console.error("Missing RESEND_API_KEY in environment.");
-    return;
+    throw new Error("RESEND_API_KEY is missing");
   }
 
-  try {
-    const data = await resend.emails.send({
-      from: process.env.FROM_EMAIL,
-      to,
-      subject,
-      html,
-      text,
-    });
-    console.log("Email sent:", data);
-  } catch (err) {
-    console.error("Email send failed:", err);
+  if (!to) {
+    throw new Error("Missing `to` email address");
   }
+
+  const payload = {
+    from: from || DEFAULT_FROM,
+    to,
+    subject,
+    html,
+    text,
+    reply_to: replyTo || DEFAULT_REPLY_TO,
+  };
+
+  const result = await resend.emails.send(payload);
+
+  if (result?.error) {
+    throw new Error(result.error.message || "Resend failed");
+  }
+
+  console.log("Email sent:", {
+    to,
+    subject,
+    id: result?.data?.id || null,
+  });
+
+  return result;
 }

@@ -1,32 +1,35 @@
 // src/lib/api.js
-// Decide the API base at build time (Vite or CRA) with a safe runtime fallback.
+// TEMP LOCAL HARDCODE: use backend on 5050 when on localhost.
+
+const host = typeof window !== "undefined" ? window.location.hostname : "";
+
+// TEMP: hardcode local dev backend
+const LOCAL_DEV_API = "http://localhost:5050";
 
 const fromVite =
   typeof import.meta !== "undefined" &&
   import.meta.env &&
   import.meta.env.VITE_API_BASE;
+
 const fromCRA =
   typeof process !== "undefined" &&
   process.env &&
   process.env.REACT_APP_API_URL;
 
-// If envs are missing, hard-fallback: when running on your Vercel domain,
-// talk to the Render backend directly.
-const host = typeof window !== "undefined" ? window.location.hostname : "";
+// Production fallback (Render) only when on your domain
 const fallback =
   host && host.endsWith("ubcboxingclub.app")
     ? "https://ubc-boxing-club-portal.onrender.com"
     : "";
 
 // final base (no trailing slash)
-export const API_BASE = String(fromVite || fromCRA || fallback).replace(
-  /\/+$/,
-  ""
-);
+export const API_BASE = String(
+  host === "localhost" || host === "127.0.0.1"
+    ? LOCAL_DEV_API
+    : fromVite || fromCRA || fallback,
+).replace(/\/+$/, "");
 
 if (!API_BASE) {
-  // You’ll see this if you forgot to set the env on Vercel and you’re not on ubcboxingclub.app
-  // It keeps working with relative URLs during local dev behind a proxy.
   console.warn("[api] API_BASE not set — using relative /api");
 }
 

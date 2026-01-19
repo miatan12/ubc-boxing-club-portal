@@ -51,6 +51,7 @@ export default function SuccessPage() {
 
           localStorage.removeItem("boxing-form");
           sessionStorage.removeItem("submittedToStripe");
+          sessionStorage.removeItem("checkoutFlow");
           setStatus("success");
           setTimeout(() => (window.location.href = "/"), 1200);
           return;
@@ -69,12 +70,21 @@ export default function SuccessPage() {
 
           localStorage.removeItem("renewalData");
           sessionStorage.removeItem("renewalReady");
+          sessionStorage.removeItem("checkoutFlow");
           setStatus("success");
           setTimeout(() => (window.location.href = "/"), 1200);
           return;
         }
 
         // Nothing to submit
+        const checkoutFlow = sessionStorage.getItem("checkoutFlow");
+        if (checkoutFlow === "dropin") {
+          setFlow("dropin");
+          setStatus("success");
+          sessionStorage.removeItem("checkoutFlow");
+          setTimeout(() => (window.location.href = "/"), 1200);
+          return;
+        }
         setStatus("error");
       } catch (err) {
         console.error("Finalize after payment failed:", err);
@@ -89,8 +99,10 @@ export default function SuccessPage() {
     flow === "renew"
       ? "Renewal Successful!"
       : flow === "register"
-      ? "Registration Successful!"
-      : "Finalizing…";
+        ? "Registration Successful!"
+        : flow === "dropin"
+          ? "Drop-in Successful!"
+          : "Finalizing…";
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0b0d] text-neutral-900 dark:text-white flex items-center justify-center px-4">
@@ -122,8 +134,11 @@ export default function SuccessPage() {
             </div>
             <h1 className="text-3xl font-extrabold">{heading}</h1>
             <p className="mt-3 text-neutral-700 dark:text-neutral-200">
-              Thank you! Your membership has been processed.
+              {flow === "dropin"
+                ? "Thanks! Your drop-in payment is confirmed. Check your email for the receipt."
+                : "Thank you! Your membership has been processed."}
             </p>
+
             <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
               Redirecting to home…
             </p>

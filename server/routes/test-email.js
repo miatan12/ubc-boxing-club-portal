@@ -7,8 +7,8 @@ const router = express.Router();
 router.get("/test-email", async (req, res) => {
   try {
     await sendEmail({
-      to: "miatan@gmail.com", // replace with your real inbox
-      from: "UBC Boxing Club <no-reply@ubcboxingclub.com>", // MUST be your verified domain
+      to: "miatan.ott@gmail.com", // replace with your real inbox
+      from: "UBC Boxing Club <no-reply@ubcboxingclub.app>", // MUST be your verified domain
       replyTo: "info@ubcboxingclub.com",
       subject: "UBC Boxing Club - Test Email",
       html: `

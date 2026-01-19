@@ -31,6 +31,7 @@ export default function DropIn() {
         toast.error("Could not open payment page. Try again.");
         return;
       }
+      sessionStorage.setItem("checkoutFlow", "dropin");
       window.location.href = data.url;
     } catch (err) {
       console.error(err);

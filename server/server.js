@@ -1,8 +1,9 @@
 // server.js
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import dotenv from "dotenv";
 
 import memberRoutes from "./routes/members.js";
 import checkoutRoutes from "./routes/checkout.js";
@@ -10,8 +11,6 @@ import adminRoutes from "./routes/admin.js";
 import stripeWebhook from "./routes/stripe-webhook.js";
 
 import testEmailRouter from "./routes/test-email.js";
-
-dotenv.config();
 
 const app = express();
 

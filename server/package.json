@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "main": "server.js",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js"
   },
@@ -14,6 +16,7 @@
     "express": "^4.19.2",
     "mongoose": "^8.15.0",
     "multer": "^2.0.0",
+    "resend": "^6.8.0",
     "stripe": "^18.2.1"
   }
 }

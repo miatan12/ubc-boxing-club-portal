@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 const memberSchema = new mongoose.Schema({
   membershipKey: { type: String, index: true, unique: true }, // NEW
+  appliedCheckoutSessions: { type: [String], default: [] },
   name: { type: String, required: true },
   email: { type: String, required: true },
   studentNumber: { type: String, required: true },

@@ -3,7 +3,6 @@ import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { getJSON, postJSON, okOrThrow } from "../lib/api";
 
-const ONLINE_DOLLARS = { term: 51.55, year: 103.1, nonstudent: 82.5 };
 const CASH_DOLLARS = { term: 50, year: 100, nonstudent: 80 };
 
 const LABELS = {
@@ -103,17 +102,7 @@ export default function RenewForm() {
         return;
       }
 
-      // 4) Online path: stash details and go to Stripe
       toast.loading("Redirecting to secure checkout…", { id: loadingId });
-
-      const renewalData = {
-        email: emailNorm,
-        paymentMethod: "online",
-        paymentAmount: ONLINE_DOLLARS[membershipType], // dollars (for your /success usage)
-        newExpiryDate: newExpiry.toISOString(),
-      };
-      localStorage.setItem("renewalData", JSON.stringify(renewalData));
-      sessionStorage.setItem("renewalReady", "true");
 
       const resStripe = await postJSON(
         "/api/checkout/create-checkout-session",

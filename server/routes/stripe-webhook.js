@@ -1,26 +1,13 @@
 import express from "express";
 import Stripe from "stripe";
 import Member from "../models/Member.js";
+import Checkout from "../models/Checkout.js";
+import { fulfillCheckout } from "../lib/fulfill-checkout.js";
 import { sendEmail } from "../lib/email.js";
 import { renderReceiptEmail } from "../lib/receipt.js";
 
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-// ------------------ helpers ------------------
-function computeDates(plan) {
-  const start = new Date();
-  const expiry = new Date(start);
-
-  if (plan === "term" || plan === "nonstudent") {
-    expiry.setMonth(expiry.getMonth() + 4);
-  }
-  if (plan === "year") {
-    expiry.setMonth(expiry.getMonth() + 12);
-  }
-
-  return { start, expiry };
-}
 
 // ------------------ webhook ------------------
 router.post("/webhook", async (req, res) => {
@@ -47,6 +34,8 @@ router.post("/webhook", async (req, res) => {
 
   try {
     const session = event.data.object;
+    const { checkout, start, expiry } = await fulfillCheckout(session, { Checkout, Member });
+    if (checkout.receiptSentAt) return res.json({ received: true });
 
     // ------------------ receipt URL ------------------
     let receiptUrl = null;
@@ -94,37 +83,9 @@ router.post("/webhook", async (req, res) => {
       return res.json({ received: true });
     }
 
-    // ------------------ DB updates ------------------
-    let validFrom = null;
-    let validUntil = null;
-    let checkInDate = null;
-
-    if (flow === "dropin") {
-      // Drop-ins are NOT stored in DB
-      checkInDate = new Date().toISOString();
-    } else {
-      const { start, expiry } = computeDates(plan);
-      validFrom = start.toISOString();
-      validUntil = expiry.toISOString();
-
-      await Member.updateOne(
-        { email },
-        {
-          $set: {
-            name: name || "(Pending Name)",
-            membershipType: plan,
-            startDate: start,
-            expiryDate: expiry,
-            paymentMethod: "online",
-            paymentAmount: amountPaid,
-            paymentDate: new Date(),
-            status: "active",
-          },
-          $setOnInsert: { attendance: [] },
-        },
-        { upsert: true },
-      );
-    }
+    const validFrom = flow === "dropin" ? null : start.toISOString();
+    const validUntil = flow === "dropin" ? null : expiry.toISOString();
+    const checkInDate = flow === "dropin" ? start.toISOString() : null;
 
     // ------------------ email ------------------
     const { subject, html, text } = renderReceiptEmail({
@@ -141,14 +102,20 @@ router.post("/webhook", async (req, res) => {
       receiptUrl,
     });
 
-    await sendEmail({ to: email, subject, html, text });
+    await sendEmail({ to: email, subject, html, text }, {
+      idempotencyKey: `checkout-receipt/${session.id}`,
+    });
+    await Checkout.updateOne(
+      { _id: checkout._id },
+      { $set: { receiptSentAt: new Date() } },
+    );
 
     console.log("[webhook] Email sent to", email);
     return res.json({ received: true });
   } catch (err) {
     console.error("[webhook] Handler error:", err);
-    // Always return 200 so Stripe doesn’t retry forever
-    return res.json({ received: true });
+    // Retry transient database/email failures without duplicating membership.
+    return res.status(500).json({ error: "Could not fulfill checkout." });
   }
 });
 

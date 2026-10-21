@@ -2,6 +2,9 @@
 import express from "express";
 import Stripe from "stripe";
 import dotenv from "dotenv";
+import Member from "../models/Member.js";
+import Checkout from "../models/Checkout.js";
+import { PLAN_CENTS, computeDates } from "../lib/fulfill-checkout.js";
 
 dotenv.config();
 
@@ -52,7 +55,6 @@ function ensureSessionIdParam(url) {
 
 // ---------- Server-trusted pricing and labels ----------
 // ADDED: dropin = 500 cents ($5 CAD)
-const PLAN_CENTS = { term: 5155, year: 10310, nonstudent: 8250, dropin: 500 };
 
 const LABELS = {
   register: {
@@ -84,7 +86,7 @@ router.post("/create-checkout-session", async (req, res) => {
     const flow = String(req.body.type || "register").toLowerCase(); // "register" | "renew" | "dropin"
     const planKey = String(req.body.plan || "").toLowerCase(); // "term" | "year" | "nonstudent" | "dropin"
     const name = (req.body.name || "").toString();
-    const email = (req.body.email || "").toString().toLowerCase();
+    const email = (req.body.email || "").toString().trim().toLowerCase();
 
     if (!PLAN_CENTS[planKey]) {
       return res.status(400).json({ error: "Missing or invalid plan." });
@@ -92,6 +94,40 @@ router.post("/create-checkout-session", async (req, res) => {
     if (!LABELS[flow]) {
       return res.status(400).json({ error: "Invalid flow type." });
     }
+    if (!LABELS[flow][planKey]) {
+      return res.status(400).json({ error: "Invalid plan for this checkout." });
+    }
+
+    let registration;
+    let memberId;
+    if (flow === "register") {
+      const raw = req.body.registration || {};
+      const { start, expiry } = computeDates(planKey, new Date());
+      const member = new Member({
+        name: String(raw.name || "").trim(),
+        email,
+        studentNumber: String(raw.studentNumber || "").trim(),
+        emergencyContactName: String(raw.emergencyContactName || "").trim(),
+        emergencyContactPhone: String(raw.emergencyContactPhone || "").trim(),
+        emergencyContactRelation: String(raw.emergencyContactRelation || "").trim(),
+        waiverSigned: raw.waiverSigned === true,
+        membershipType: planKey,
+        paymentMethod: "online",
+        startDate: start,
+        expiryDate: expiry,
+      });
+      if (!member.waiverSigned || !/^\S+@\S+\.\S+$/.test(email)) {
+        return res.status(400).json({ error: "A valid email and signed waiver are required." });
+      }
+      await member.validate();
+      registration = member.toObject();
+    } else if (flow === "renew") {
+      const member = await Member.findOne({ email });
+      if (!member) return res.status(404).json({ error: "Member not found." });
+      memberId = member._id;
+    }
+
+    const checkout = await Checkout.create({ flow, plan: planKey, registration, memberId });
 
     const FRONTEND_ORIGIN =
       process.env.FRONTEND_ORIGIN || "http://localhost:3000";
@@ -135,15 +171,39 @@ router.post("/create-checkout-session", async (req, res) => {
         label_server: serverLabel,
         name,
         email,
+        checkoutId: checkout._id.toString(),
       },
     });
+
+    checkout.sessionId = session.id;
+    await checkout.save();
 
     return res.json({ url: session.url });
   } catch (err) {
     console.error("Stripe error:", err);
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ error: "Please complete all registration fields." });
+    }
     return res
       .status(500)
       .json({ error: "Failed to create checkout session." });
+  }
+});
+
+// The return page only observes fulfillment; the signed webhook owns writes.
+router.get("/session-status", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const sessionId = String(req.query.session_id || "");
+  if (!/^cs_[a-zA-Z0-9_]+$/.test(sessionId)) {
+    return res.status(400).json({ error: "Invalid checkout session." });
+  }
+  try {
+    const checkout = await Checkout.findOne({ sessionId });
+    if (!checkout) return res.status(404).json({ error: "Checkout not found." });
+    return res.json({ flow: checkout.flow, fulfilled: Boolean(checkout.fulfilledAt) });
+  } catch (err) {
+    console.error("Checkout status error:", err);
+    return res.status(500).json({ error: "Could not check payment status." });
   }
 });
 

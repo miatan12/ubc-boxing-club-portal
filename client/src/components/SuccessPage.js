@@ -1,98 +1,50 @@
-import { useEffect, useRef, useState } from "react";
-import { postJSON, okOrThrow } from "../lib/api";
+import { useEffect, useState } from "react";
+import { getJSON, okOrThrow } from "../lib/api";
 
 export default function SuccessPage() {
   const [status, setStatus] = useState("loading"); // loading | success | error
-  const [flow, setFlow] = useState(null); // "register" | "renew"
-  const hasRun = useRef(false);
-
-  // If user re-enters page, reset flags
+  const [flow, setFlow] = useState(null); // "register" | "renew" | "dropin"
   useEffect(() => {
-    sessionStorage.removeItem("already-submitted");
-    sessionStorage.removeItem("renewal-submitted");
-  }, []);
+    let cancelled = false;
+    let pollTimer;
+    let redirectTimer;
+    const sessionId = new URLSearchParams(window.location.search).get("session_id");
+    const deadline = Date.now() + 60000;
 
-  useEffect(() => {
-    if (hasRun.current) return;
-    hasRun.current = true;
-
-    (async () => {
+    const checkStatus = async () => {
       try {
-        const alreadySubmitted = sessionStorage.getItem("already-submitted");
-        const renewalSubmitted = sessionStorage.getItem("renewal-submitted");
-        const boxingForm = localStorage.getItem("boxing-form");
-        const renewalData = localStorage.getItem("renewalData");
-
-        // ---- Registration flow ----
-        if (alreadySubmitted !== "true" && boxingForm) {
-          setFlow("register");
-
-          const raw = JSON.parse(boxingForm);
-          const payload = {
-            name: raw.name,
-            email: raw.email,
-            studentNumber: raw.studentNumber,
-            emergencyContactName: raw.emergencyContactName,
-            emergencyContactPhone: raw.emergencyContactPhone,
-            emergencyContactRelation: raw.emergencyContactRelation,
-            waiverSigned: raw.waiverSigned,
-            membershipType: raw.membershipType,
-            startDate: raw.startDate,
-            expiryDate: raw.expiryDate,
-            paymentMethod: raw.paymentMethod,
-            cashReceiver: raw.cashReceiver || "",
-          };
-
-          sessionStorage.setItem("already-submitted", "true");
-
-          const res = await postJSON("/api/members", payload);
-          await okOrThrow(res, "Failed to create membership");
-          await res.json(); // consume body
-
+        if (!sessionId) throw new Error("Missing checkout session.");
+        const res = await getJSON(
+          `/api/checkout/session-status?session_id=${encodeURIComponent(sessionId)}`,
+        );
+        await okOrThrow(res, "Could not confirm payment");
+        const data = await res.json();
+        if (cancelled) return;
+        setFlow(data.flow);
+        if (data.fulfilled) {
+          // Discard data left by older app versions; never submit it again.
           localStorage.removeItem("boxing-form");
-          sessionStorage.removeItem("submittedToStripe");
-          sessionStorage.removeItem("checkoutFlow");
-          setStatus("success");
-          setTimeout(() => (window.location.href = "/"), 1200);
-          return;
-        }
-
-        // ---- Renewal flow ----
-        if (renewalSubmitted !== "true" && renewalData) {
-          setFlow("renew");
-
-          const renewal = JSON.parse(renewalData);
-          sessionStorage.setItem("renewal-submitted", "true");
-
-          const res = await postJSON("/api/members/renew", renewal);
-          await okOrThrow(res, "Failed to record renewal");
-          await res.json();
-
           localStorage.removeItem("renewalData");
-          sessionStorage.removeItem("renewalReady");
-          sessionStorage.removeItem("checkoutFlow");
+          ["already-submitted", "renewal-submitted", "submittedToStripe",
+            "renewalReady", "checkoutFlow"].forEach((key) => sessionStorage.removeItem(key));
           setStatus("success");
-          setTimeout(() => (window.location.href = "/"), 1200);
-          return;
+          redirectTimer = setTimeout(() => (window.location.href = "/"), 1200);
+        } else if (Date.now() < deadline) {
+          pollTimer = setTimeout(checkStatus, 1500);
+        } else {
+          setStatus("error");
         }
-
-        // Nothing to submit
-        const checkoutFlow = sessionStorage.getItem("checkoutFlow");
-        if (checkoutFlow === "dropin") {
-          setFlow("dropin");
-          setStatus("success");
-          sessionStorage.removeItem("checkoutFlow");
-          setTimeout(() => (window.location.href = "/"), 1200);
-          return;
-        }
-        setStatus("error");
       } catch (err) {
-        console.error("Finalize after payment failed:", err);
-        sessionStorage.removeItem("already-submitted");
-        sessionStorage.removeItem("renewal-submitted");
-        setStatus("error");
+        console.error("Payment confirmation failed:", err);
+        if (!cancelled) setStatus("error");
       }
-    })();
+    };
+    checkStatus();
+    return () => {
+      cancelled = true;
+      clearTimeout(pollTimer);
+      clearTimeout(redirectTimer);
+    };
   }, []);
 
   const heading =
@@ -112,7 +64,7 @@ export default function SuccessPage() {
             <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-neutral-300 dark:border-neutral-700 border-t-red-600 animate-spin" />
             <h1 className="text-2xl font-extrabold">Finalizing…</h1>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Please don’t close this tab.
+              Waiting for payment confirmation…
             </p>
           </>
         )}
@@ -162,10 +114,10 @@ export default function SuccessPage() {
               </svg>
             </div>
             <h1 className="text-3xl font-extrabold text-red-600">
-              We couldn’t finalize your payment
+              We couldn’t confirm your registration
             </h1>
             <p className="mt-3 text-neutral-700 dark:text-neutral-200">
-              Please email{" "}
+              Your payment may still be processing. Please refresh this page or email{" "}
               <a
                 className="underline underline-offset-4 text-red-600 dark:text-red-400"
                 href="mailto:amsboxingubc@gmail.com"

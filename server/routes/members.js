@@ -66,7 +66,7 @@ function escapeRegex(s = "") {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/* ---------------------- JSON submission (Stripe) -------------------- */
+/* ---------------------- JSON submission (cash) ---------------------- */
 
 router.post("/", async (req, res, next) => {
   if (!req.headers["content-type"]?.includes("application/json")) return next();
@@ -107,6 +107,9 @@ router.post("/", async (req, res, next) => {
 
     if (!VALID_PAY.has(paymentMethod))
       return res.status(400).json({ error: "Invalid payment method." });
+
+    if (paymentMethod === "online")
+      return res.status(400).json({ error: "Online registrations must use checkout." });
 
     if (paymentMethod === "cash" && !cashReceiver)
       return res
@@ -184,6 +187,9 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
     if (!VALID_PAY.has(paymentMethod))
       return res.status(400).json({ error: "Invalid payment method." });
 
+    if (paymentMethod === "online")
+      return res.status(400).json({ error: "Online registrations must use checkout." });
+
     if (paymentMethod === "cash" && !cashReceiver)
       return res
         .status(400)
@@ -258,6 +264,9 @@ router.post("/renew", async (req, res) => {
 
     if (!VALID_PAY.has(paymentMethod))
       return res.status(400).json({ message: "Invalid payment method." });
+
+    if (paymentMethod === "online")
+      return res.status(400).json({ message: "Online renewals must use checkout." });
 
     if (Number.isNaN(expiry.getTime()))
       return res.status(400).json({ message: "Invalid expiry date." });

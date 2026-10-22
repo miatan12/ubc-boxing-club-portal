@@ -9,7 +9,7 @@ const DEFAULT_FROM =
 
 const DEFAULT_REPLY_TO = process.env.REPLY_TO_EMAIL || "info@ubcboxingclub.app";
 
-export async function sendEmail({ to, subject, html, text, from, replyTo }) {
+export async function sendEmail({ to, subject, html, text, from, replyTo }, options = {}) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error("RESEND_API_KEY is missing");
   }
@@ -27,7 +27,7 @@ export async function sendEmail({ to, subject, html, text, from, replyTo }) {
     reply_to: replyTo || DEFAULT_REPLY_TO,
   };
 
-  const result = await resend.emails.send(payload);
+  const result = await resend.emails.send(payload, options);
 
   if (result?.error) {
     throw new Error(result.error.message || "Resend failed");

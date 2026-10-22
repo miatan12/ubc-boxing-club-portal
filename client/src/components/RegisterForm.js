@@ -145,15 +145,6 @@ export default function RegisterForm() {
     const emailNorm = formData.email.trim().toLowerCase();
 
     if (formData.paymentMethod === "online") {
-      // Save payload for /success page to POST /api/members after Stripe
-      const payloadToSave = {
-        ...formData,
-        email: emailNorm,
-        startDate,
-        expiryDate,
-      };
-      localStorage.setItem("boxing-form", JSON.stringify(payloadToSave));
-
       const pricing = PRICES.online[formData.membershipType];
       try {
         setStatus("loading");
@@ -165,6 +156,7 @@ export default function RegisterForm() {
           type: "register",
           name: formData.name,
           email: emailNorm,
+          registration: formData,
           successUrl: `${ORIGIN}/success`,
           cancelUrl: `${ORIGIN}/register`,
         });
@@ -178,7 +170,6 @@ export default function RegisterForm() {
           setStatus("error");
           return;
         }
-        sessionStorage.setItem("submittedToStripe", "true");
         window.location.href = data.url; // Stripe Checkout
       } catch (err) {
         console.error("Stripe redirect error:", err);

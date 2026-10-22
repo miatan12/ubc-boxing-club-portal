@@ -97,7 +97,7 @@ and the frontend production build:
 
 ```bash
 npm --prefix server test
-CI=true npm --prefix client test -- --watchAll=false --runInBand --runTestsByPath src/components/SuccessPage.test.js
+CI=true npm --prefix client test -- --watchAll=false --runInBand
 npm --prefix client run build
 ```
 
@@ -117,5 +117,42 @@ Deploy the backend and frontend together: updating only Vercel does not deploy
 the Express server changes. Checkouts opened before this change have no saved
 server-side registration and require manual reconciliation if paid during the
 rollout. Existing duplicate member records are not automatically modified.
+
+## Pull request checks
+
+GitHub Actions runs `.github/workflows/ci.yml` for every pull request and pushes
+to `master`. It uses Node.js 22 on standard Ubuntu runners and reports two checks:
+
+- **Server tests**: runs the payment and member route regression tests.
+- **Frontend tests and build**: runs the complete frontend test suite and creates
+  the production build with CI warnings treated as failures.
+
+These checks use mocked external services and do not need repository secrets,
+Stripe credentials, or a running MongoDB instance. Superseded runs are cancelled
+to avoid wasting runner minutes. The frontend Jest configuration maps React
+Router's package exports for compatibility with Create React App's older Jest
+resolver; routing tests use the real router.
+
+After pushing the workflow and letting it run once on a PR, go to the GitHub
+repository's **Settings → Rules → Rulesets**, create an active branch ruleset for
+`master`, and enable:
+
+- Require a pull request before merging, with no required approving reviews for
+  a solo-maintainer workflow.
+- Require status checks to pass, selecting **Server tests** and **Frontend tests
+  and build** after they appear in the selector.
+- Block force pushes and branch deletion.
+
+Branch protection availability depends on the GitHub plan and repository
+visibility. Passing checks do not prevent direct pushes unless branch rules are
+enabled. The workflow itself does not deploy the app.
+
+Dependabot configuration in `.github/dependabot.yml` checks root, frontend,
+backend, and GitHub Actions dependencies weekly. Minor/patch updates are grouped,
+major updates remain separate, and security updates have their own group. It
+does not automatically merge updates. Dependabot begins using this configuration
+once it is on the default branch. In the repository's security settings, also
+enable **Dependabot alerts** and **Dependabot security updates**; the YAML file
+does not enable these account-side settings.
 
 This project is licensed under the **MIT License** — see the [LICENSE.md](LICENSE.md) file for details.

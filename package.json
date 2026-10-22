@@ -6,6 +6,6 @@
   },
   "dependencies": {
     "resend": "^6.8.0",
-    "stripe": "^18.2.1"
+    "stripe": "^23.0.0"
   }
 }
